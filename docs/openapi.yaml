@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: Office Queue Management API
+  version: 0.1.0
+  description: >
+    Backend API for the Office Queue Management System (SE2 project).
+    Sprint 1 covers the "Get ticket" story: a customer selects a service
+    type and receives a ticket with a unique wait-list code.
+    Storage is in-memory; queues are reset every morning (see POST /api/test/reset).
+servers:
+  - url: http://localhost:3001
+    description: Local development
+tags:
+  - name: services
+  - name: tickets
+  - name: test-utils
+paths:
+  /api/services:
+    get:
+      tags: [services]
+      summary: List all service types offered by the office
+      operationId: getServices
+      responses:
+        '200':
+          description: List of service types
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [services]
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+  /api/tickets:
+    post:
+      tags: [tickets]
+      summary: Issue a new ticket for a service type
+      operationId: createTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTicket'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Missing or invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown service type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/test/reset:
+    post:
+      tags: [test-utils]
+      summary: Reset all queues and ticket counters (morning reset)
+      description: Available only when NODE_ENV=test. Used by tests to isolate state.
+      responses:
+        '204':
+          description: State cleared
+        '403':
+          description: Not available outside test environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Service:
+      type: object
+      required: [tag, name, serviceTime]
+      properties:
+        tag:
+          type: string
+          description: Short identifier of the service type
+          example: A
+        name:
+          type: string
+          example: Shipping
+        serviceTime:
+          type: integer
+          description: Average time to serve this request type, in minutes
+          example: 5
+    NewTicket:
+      type: object
+      required: [serviceType]
+      properties:
+        serviceType:
+          type: string
+          description: Tag of the requested service type
+          example: A
+    Ticket:
+      type: object
+      required: [id, code, serviceType, issuedAt, status]
+      properties:
+        id:
+          type: integer
+          example: 1
+        code:
+          type: string
+          description: >
+            Wait-list code shown to the customer. Zero-padded daily sequence,
+            unique for the whole office (queues reset every morning).
+          example: '001'
+        serviceType:
+          type: string
+          example: A
+        issuedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [waiting, called, served]
+          example: waiting
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: serviceType is required

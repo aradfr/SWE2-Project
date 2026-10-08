@@ -15,3 +15,9 @@ export const COUNTERS = Object.freeze([
   Object.freeze({ id: 2, services: Object.freeze(['A', 'B']) }),
   Object.freeze({ id: 3, services: Object.freeze(['C']) }),
 ])
+
+import { seedOffice } from './dao/officeDao.js'
+
+export function seedDatabase(db) {
+  return seedOffice(db, SERVICES, COUNTERS)
+}

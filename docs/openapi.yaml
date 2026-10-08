@@ -5,7 +5,7 @@ info:
   description: >
     Backend API for the Office Queue Management System (SE2 project).
     Sprint 1 covers the "Get ticket" story: a customer selects a service
-    type and receives a ticket with a unique wait-list code.
+    type and receives a ticket with a wait-list code (e.g. A001).
     Storage is in-memory; queues are reset every morning (see POST /api/test/reset).
 servers:
   - url: http://localhost:3001
@@ -89,11 +89,11 @@ components:
           example: A
         name:
           type: string
-          example: Shipping
+          example: Payments
         serviceTime:
           type: integer
           description: Average time to serve this request type, in minutes
-          example: 5
+          example: 3
     NewTicket:
       type: object
       required: [serviceType]
@@ -112,9 +112,11 @@ components:
         code:
           type: string
           description: >
-            Wait-list code shown to the customer. Zero-padded daily sequence,
-            unique for the whole office (queues reset every morning).
-          example: '001'
+            Wait-list code shown to the customer: service tag + 3-digit number
+            per service (A001, A002…, B001…). Numbers restart from 001 every
+            morning and after 999. Unique within the day unless a service
+            exceeds 999 tickets; the `id` is always unique.
+          example: 'A001'
         serviceType:
           type: string
           example: A

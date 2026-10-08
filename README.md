@@ -14,6 +14,20 @@ e2e/      Playwright end-to-end tests
 docs/     openapi.yaml - the API contract (also served live at /api/docs)
 ```
 
+## Server structure
+
+```
+server/src/routes/        Express routes (HTTP only: validation, status codes)
+server/src/services/      business logic of each story (no HTTP)
+server/src/store.js       single in-memory data access point (queue.js, seed.js used only by the store)
+server/test/unit/         unit tests
+server/test/integration/  HTTP integration tests
+```
+
+Routes call services, services call the store; routes never use the store directly.
+Services and routes use `async`/`await`: the store is synchronous today, but it
+will become async when the database arrives, with the same function names.
+
 ## Tech decisions (Sprint 1)
 
 - **Node 22 + Express** backend, **React + Vite** frontend, one language everywhere.
@@ -48,6 +62,9 @@ npm run test:e2e            # Playwright E2E (first time: cd e2e && npm install 
 
 ## Ticket codes
 
-Zero-padded daily sequence (`001`, `002`, ...), unique for the whole office.
-The spec requires uniqueness per office and a morning reset, so a per-day
-counter satisfies both.
+Service tag + 3-digit number per service (`A001`, `A002`, ..., `B001`, ...).
+Numbers restart from `001` every morning, when the queues are reset.
+
+Assumption: after `999` a service's numbering restarts from `001`, so codes are
+unique within the day unless a service exceeds 999 tickets. The ticket `id` is
+always unique.

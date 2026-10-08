@@ -35,8 +35,7 @@ export function formatCode(tag, n) {
  * Issues a new ticket for a service type and adds it to that service's queue.
  * The service is checked first, so an invalid request consumes no number or id.
  * @param {string} serviceType - Exact service tag, e.g. 'A' (no normalization).
- * @returns {Promise<Ticket>}
- *   A copy of the new ticket.
+ * @returns {Promise<Ticket>} The new ticket.
  * @throws {ServiceNotFoundError} If serviceType does not match any service (rejected promise).
  */
 export async function createTicket(serviceType) {
@@ -55,5 +54,5 @@ export async function createTicket(serviceType) {
   }
 
   await addTicket(ticket)
-  return { ...ticket }
+  return ticket
 }

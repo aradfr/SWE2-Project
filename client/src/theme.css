@@ -1,0 +1,72 @@
+/*
+ * Team palette. Pages must not hard-code colours: use Bootstrap variants
+ * (primary, warning, danger…).
+ *
+ *   #064789  header / navbar (and full-screen board)
+ *   #427AA1  primary: buttons and selection
+ *   #EBF2FA  page background
+ *
+ * Status colours (warning, danger, success) keep the Bootstrap defaults.
+ * Loaded after bootstrap.min.css in main.jsx, so these rules win.
+ */
+
+:root {
+  --bs-primary: #427aa1;
+  --bs-primary-rgb: 66, 122, 161;
+  --bs-link-color: #427aa1;
+  --bs-link-color-rgb: 66, 122, 161;
+  --bs-link-hover-color: #356281;
+  --bs-link-hover-color-rgb: 53, 98, 129;
+  --bs-body-bg: #ebf2fa;
+}
+
+body {
+  background-color: #ebf2fa;
+}
+
+/*
+ * Bootstrap 5.3 compiles button colours into each .btn-* class, so changing
+ * --bs-primary alone does not recolour buttons: their variables are set here.
+ * Hover = primary darkened 15%, active = darkened 20% (Bootstrap defaults).
+ */
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #427aa1;
+  --bs-btn-border-color: #427aa1;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #386889;
+  --bs-btn-hover-border-color: #386889;
+  --bs-btn-focus-shadow-rgb: 94, 142, 175;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #356281;
+  --bs-btn-active-border-color: #356281;
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: #427aa1;
+  --bs-btn-disabled-border-color: #427aa1;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: #427aa1;
+  --bs-btn-border-color: #427aa1;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #427aa1;
+  --bs-btn-hover-border-color: #427aa1;
+  --bs-btn-focus-shadow-rgb: 66, 122, 161;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #427aa1;
+  --bs-btn-active-border-color: #427aa1;
+  --bs-btn-disabled-color: #427aa1;
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: #427aa1;
+}
+
+/* Top navigation bar (components/AppNavbar.jsx) */
+.app-navbar {
+  background-color: #064789;
+}
+
+/* Full-screen display board (pages/board/BoardPage.jsx) */
+.board-screen {
+  background-color: #064789;
+  color: #fff;
+}

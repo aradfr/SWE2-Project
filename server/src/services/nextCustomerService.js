@@ -41,20 +41,23 @@ export function buildCandidates(counterServices, services, lengths) {
 }
 
 
-// Calls the next customer to a counter: chooses the queue with selectQueue
-// and marks its first ticket as called by this counter
+const MAX_ATTEMPTS = 3 // limit to avoid an endless loop
+
 export async function callNextCustomer(counterId) {
   const counter = await getCounter(counterId)
   if (counter === null) throw new CounterNotFoundError(counterId)
 
-  // Two queries instead of one per service: all service times and all queue lengths.
-  const [services, lengths] = await Promise.all([getServices(), getQueueLengths()])
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // Two queries instead of one per service: all service times and all queue lengths
+    const [services, lengths] = await Promise.all([getServices(), getQueueLengths()])
 
-  const tag = selectQueue(buildCandidates(counter.services, services, lengths))
-  if (tag === null) return null
+    const tag = selectQueue(buildCandidates(counter.services, services, lengths))
+    if (tag === null) return null // all queues of this counter are empty
 
-  // dequeue saves the counter id and the call time on the ticket (status 'called')
-  // It returns null if another counter took the last ticket in the meantime
-  const ticket = await dequeue(tag, counter.id)
-  return ticket === null ? null : { ...ticket, counterId: counter.id }
+    // dequeue saves the counter id and the call time on the ticket (status 'called')
+    const ticket = await dequeue(tag, counter.id)
+    if (ticket !== null) return { ...ticket, counterId: counter.id }
+  }
+
+  return null
 }

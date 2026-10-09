@@ -12,7 +12,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

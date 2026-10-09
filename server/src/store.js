@@ -1,19 +1,12 @@
-// In-memory data store: the single access point to application data.
-// The rest of the server must use only these exported functions, so the
-// storage can later be replaced (e.g. with SQLite) without touching callers.
-//
-// Rules:
-// - every public function calls ensureToday() first, so queues and per-service
-//   counters are reset automatically when the day changes;
-// - no internal reference ever leaves the store: only copies or primitives.
-//
-// The store only keeps data: it does not create tickets nor decide their
-// code format (that belongs to the ticket service).
+// SQLite-backed data facade used by services and routes.
+// Public methods remain isolated from DAO details and return detached values.
 
-import { Queue } from './queue.js'
-import { SERVICES, COUNTERS } from './seed.js'
+import { openDatabase } from './dao/db.js'
+import * as officeDao from './dao/officeDao.js'
+import * as ticketDao from './dao/ticketDao.js'
+import { seedDatabase } from './seed.js'
 
-// Thrown when a service tag does not match any service type.
+// Public error for unknown service tags.
 export class ServiceNotFoundError extends Error {
   constructor(tag) {
     super(`Unknown service type: ${tag}`)
@@ -22,24 +15,9 @@ export class ServiceNotFoundError extends Error {
   }
 }
 
-// ---- Internal state (one instance for the whole application) ----
-// Invariant: the keys of `sequences` and `queues` are exactly the SERVICES tags.
+let databasePromise
 
-let day = today() // local date (YYYY-MM-DD) the queues and counters refer to
-const sequences = new Map() // tag -> last number issued for that service
-const queues = new Map() // tag -> Queue of waiting tickets (FIFO)
-let lastId = 0 // last global ticket id; NOT reset when the day changes
-
-for (const { tag } of SERVICES) {
-  sequences.set(tag, 0)
-  queues.set(tag, new Queue())
-}
-
-// ---- Private helpers ----
-
-// Current local date as YYYY-MM-DD. This is the only place the date is read.
-// toISOString() is not used because it is UTC and would return the previous
-// day right after local midnight.
+// Return the current local date without converting through UTC.
 function today() {
   const now = new Date()
   const yyyy = now.getFullYear()
@@ -48,132 +26,107 @@ function today() {
   return `${yyyy}-${mm}-${dd}`
 }
 
-// Empties all queues and resets per-service counters to 0.
-function clearDailyData() {
-  for (const queue of queues.values()) queue.clear()
-  for (const tag of sequences.keys()) sequences.set(tag, 0)
-}
-
-// New day: queues and per-service counters start from scratch.
-// lastId is kept so ticket ids stay unique across days.
-function ensureToday() {
-  const current = today()
-  if (current !== day) {
-    clearDailyData()
-    day = current
+// Lazily open the shared database and seed static office configuration.
+async function getDatabase() {
+  if (!databasePromise) {
+    databasePromise = openDatabase().then(async (db) => {
+      await seedDatabase(db)
+      return db
+    })
   }
+  return databasePromise
 }
 
-// Returns the internal queue for a tag. Never return it to callers.
-// Throws ServiceNotFoundError for unknown tags (including non-string values).
-function getQueueOrThrow(tag) {
-  const queue = queues.get(tag)
-  if (!queue) throw new ServiceNotFoundError(tag)
-  return queue
+// Return a service or raise the public error for invalid tags.
+async function requireService(db, tag) {
+  const service = await officeDao.getService(db, tag)
+  if (!service) throw new ServiceNotFoundError(tag)
+  return service
 }
 
+// Copy nested service arrays so callers cannot mutate DAO results.
 function copyCounter(counter) {
   return { ...counter, services: [...counter.services] }
 }
 
-// ---- Services and counters ----
-
-// All service types, in seed order.
-export function getServices() {
-  ensureToday()
-  return SERVICES.map((service) => ({ ...service }))
+// Return all configured service types in seed order.
+export async function getServices() {
+  const db = await getDatabase()
+  return officeDao.getServices(db)
 }
 
-// The service with the given tag, or null if it does not exist (never throws).
-export function getService(tag) {
-  ensureToday()
-  const service = SERVICES.find((s) => s.tag === tag)
-  return service ? { ...service } : null
+// Return one service, or null when the tag is not configured.
+export async function getService(tag) {
+  const db = await getDatabase()
+  return (await officeDao.getService(db, tag)) || null
 }
 
-// All counters, each with the list of service tags it serves.
-export function getCounters() {
-  ensureToday()
-  return COUNTERS.map(copyCounter)
+// Return all counters with their supported service tags.
+export async function getCounters() {
+  const db = await getDatabase()
+  const counters = await officeDao.getCounters(db)
+  return counters.map(copyCounter)
 }
 
-// The counter with the given numeric id, or null if it does not exist.
-export function getCounter(id) {
-  ensureToday()
-  const counter = COUNTERS.find((c) => c.id === id)
+// Return one counter, or null when its numeric id is not configured.
+export async function getCounter(id) {
+  const db = await getDatabase()
+  const counter = await officeDao.getCounter(db, id)
   return counter ? copyCounter(counter) : null
 }
 
-// ---- Numbering ----
-
-// Next number for a service (1, 2, 3...). Restarts from 1 every day.
-// Throws ServiceNotFoundError for unknown tags.
-export function nextSequence(tag) {
-  ensureToday()
-  getQueueOrThrow(tag) // validates the tag
-  const next = sequences.get(tag) + 1
-  sequences.set(tag, next)
-  return next
+// Add a ticket to the current day's waiting queue.
+export async function addTicket(ticket) {
+  const db = await getDatabase()
+  const serviceType = ticket?.serviceType
+  await requireService(db, serviceType)
+  return ticketDao.addTicket(db, serviceType, today(), ticket.issuedAt)
 }
 
-// Next global ticket id (1, 2, 3...). Never restarts when the day changes.
-export function nextId() {
-  ensureToday()
-  lastId++
-  return lastId
+// Mark and return the first waiting ticket for a service.
+export async function dequeue(tag, counterId = null) {
+  const db = await getDatabase()
+  await requireService(db, tag)
+  return ticketDao.dequeue(db, tag, today(), counterId)
 }
 
-// ---- Queues ----
-
-// Appends a copy of the ticket to the queue of ticket.serviceType.
-// Other ticket fields are not validated here.
-// Throws ServiceNotFoundError for unknown service types.
-export function addTicket(ticket) {
-  ensureToday()
-  getQueueOrThrow(ticket.serviceType).enqueue({ ...ticket })
+// Inspect the first waiting ticket without removing it.
+export async function peek(tag) {
+  const db = await getDatabase()
+  await requireService(db, tag)
+  return ticketDao.peek(db, tag, today())
 }
 
-// Removes and returns the first ticket of the service queue, or null if empty.
-// The ticket is no longer stored, so it is returned as is.
-export function dequeue(tag) {
-  ensureToday()
-  return getQueueOrThrow(tag).dequeue()
+// Return the number of waiting tickets for one service.
+export async function getQueueLength(tag) {
+  const db = await getDatabase()
+  await requireService(db, tag)
+  return ticketDao.getQueueLength(db, tag, today())
 }
 
-// Copy of the first ticket of the service queue (not removed), or null if empty.
-export function peek(tag) {
-  ensureToday()
-  const ticket = getQueueOrThrow(tag).peek()
-  return ticket ? { ...ticket } : null
+// Return waiting-ticket counts for every configured service.
+export async function getQueueLengths() {
+  const db = await getDatabase()
+  return ticketDao.getQueueLengths(db, today())
 }
 
-// Number of tickets waiting for a service.
-export function getQueueLength(tag) {
-  ensureToday()
-  return getQueueOrThrow(tag).size()
+// Return all waiting tickets for a service in FIFO order.
+export async function getQueue(tag) {
+  const db = await getDatabase()
+  await requireService(db, tag)
+  return ticketDao.getQueue(db, tag, today())
 }
 
-// Waiting tickets per service as a plain object, e.g. { A: 2, B: 0, C: 1 }.
-// Keys follow the seed order of services.
-export function getQueueLengths() {
-  ensureToday()
-  const lengths = {}
-  for (const { tag } of SERVICES) lengths[tag] = queues.get(tag).size()
-  return lengths
+// Clear tickets for test isolation; daily operation never calls this method.
+export async function reset() {
+  const db = await getDatabase()
+  return ticketDao.reset(db)
 }
 
-// Copies of the tickets waiting for a service, from first to last.
-export function getQueue(tag) {
-  ensureToday()
-  return getQueueOrThrow(tag).toArray().map((ticket) => ({ ...ticket }))
-}
-
-// ---- Reset ----
-
-// Full reset: empties queues, resets all counters (lastId included) and sets
-// the day to today. Used by tests and by POST /api/test/reset.
-export function reset() {
-  clearDailyData()
-  lastId = 0
-  day = today()
+// Close the shared database connection when tests or the process finish.
+export async function close() {
+  if (!databasePromise) return
+  const db = await databasePromise
+  await db.close()
+  databasePromise = undefined
 }

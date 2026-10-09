@@ -47,6 +47,27 @@ npm run dev:server          # API on http://localhost:3001
 npm run dev:client          # UI on http://localhost:5173 (proxies /api to 3001)
 ```
 
+## Client structure
+
+```
+client/src/
+  main.jsx, App.jsx   entry point and routes (shared)
+  theme.css           team palette (shared)
+  components/         shared UI: AppNavbar, PageLayout
+  api/client.js       apiFetch: the only way to call the server
+  api/<role>.js       API functions of each role
+  pages/<role>/       pages of each role: customer/, officer/, board/
+```
+
+Team rules:
+
+1. Work only in `pages/<role>/` and `api/<role>.js`.
+2. `App.jsx`, `main.jsx`, `theme.css` and `components/` are shared: do not edit them to work on a page.
+3. No hard-coded colours: use Bootstrap variants (`primary`, `warning`, `danger`...).
+   Page CSS is for layout only, in your own folder (`*.module.css`).
+4. New libraries only after telling the team, in a separate PR.
+5. Always call the server through `apiFetch`.
+
 ## Tests
 
 ```bash

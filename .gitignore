@@ -4,6 +4,9 @@ coverage/
 .env
 .env.*
 !.env.example
+server/data/office_queue.db*
+server/data/*.db-shm
+server/data/*.db-wal
 
 # Playwright
 test-results/

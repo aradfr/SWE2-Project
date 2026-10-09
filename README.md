@@ -63,7 +63,8 @@ E2E tests (Playwright) are not set up yet: `npm run test:e2e` will fail until th
 | POST   | `/api/tickets`     | 201 ticket     | 400 invalid body, 404 unknown service type   |
 | POST   | `/api/test/reset`  | 204            | 403 unless `NODE_ENV=test`                   |
 
-All errors use the body `{ "error": "message" }`. Full contract: `docs/openapi.yaml`.
+All errors use the body `{ "error": "message" }`. Any other `/api` path or
+method returns 404 with the same body. Full contract: `docs/openapi.yaml`.
 
 ## Git workflow
 

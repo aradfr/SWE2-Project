@@ -41,7 +41,8 @@ function ticketFromRow(row) {
 export async function peek(db, tag, day) {
   const row = await db.get(
     `SELECT id, code, service_tag AS serviceType, issued_at AS issuedAt, status
-     FROM tickets WHERE service_tag = ? AND queue_day = ? AND status = 'waiting' ORDER BY id LIMIT 1`,
+    FROM tickets WHERE service_tag = ? AND queue_day = ? AND status = 'waiting'
+     ORDER BY id LIMIT 1`,
     [tag, day],
   )
   return ticketFromRow(row)
@@ -76,7 +77,8 @@ export async function dequeue(db, tag, day, counterId = null) {
 // Queue length queries only count current-day tickets that are still waiting.
 export async function getQueueLength(db, tag, day) {
   const row = await db.get(
-    "SELECT COUNT(*) AS length FROM tickets WHERE service_tag = ? AND queue_day = ? AND status = 'waiting'",
+    `SELECT COUNT(*) AS length FROM tickets
+    WHERE service_tag = ? AND queue_day = ? AND status = 'waiting'`,
     [tag, day],
   )
   return row.length
@@ -85,7 +87,10 @@ export async function getQueueLength(db, tag, day) {
 // Return current-day queue lengths keyed by service tag.
 export async function getQueueLengths(db, day) {
   const rows = await db.all(
-    "SELECT s.tag AS tag, COUNT(t.id) AS length FROM services s LEFT JOIN tickets t ON t.service_tag = s.tag AND t.queue_day = ? AND t.status = 'waiting' GROUP BY s.tag ORDER BY s.rowid",
+    `SELECT s.tag AS tag,
+    COUNT(t.id) AS length FROM services s
+    LEFT JOIN tickets t ON t.service_tag = s.tag AND t.queue_day = ? AND t.status = 'waiting'
+    GROUP BY s.tag ORDER BY s.rowid`,
     [day],
   )
   return Object.fromEntries(rows.map(({ tag, length }) => [tag, length]))

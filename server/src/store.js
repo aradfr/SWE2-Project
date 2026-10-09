@@ -37,12 +37,6 @@ async function getDatabase() {
   return databasePromise
 }
 
-// Queue queries receive today explicitly; no rows are changed at midnight.
-async function ensureToday() {
-  const db = await getDatabase()
-  return db
-}
-
 // Return a service or raise the public error for invalid tags.
 async function requireService(db, tag) {
   const service = await officeDao.getService(db, tag)
@@ -57,33 +51,33 @@ function copyCounter(counter) {
 
 // Return all configured service types in seed order.
 export async function getServices() {
-  const db = await ensureToday()
+  const db = await getDatabase()
   return officeDao.getServices(db)
 }
 
 // Return one service, or null when the tag is not configured.
 export async function getService(tag) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   return (await officeDao.getService(db, tag)) || null
 }
 
 // Return all counters with their supported service tags.
 export async function getCounters() {
-  const db = await ensureToday()
+  const db = await getDatabase()
   const counters = await officeDao.getCounters(db)
   return counters.map(copyCounter)
 }
 
 // Return one counter, or null when its numeric id is not configured.
 export async function getCounter(id) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   const counter = await officeDao.getCounter(db, id)
   return counter ? copyCounter(counter) : null
 }
 
 // Add a ticket to the current day's waiting queue.
 export async function addTicket(ticket) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   const serviceType = ticket?.serviceType
   await requireService(db, serviceType)
   return ticketDao.addTicket(db, serviceType, today(), ticket.issuedAt)
@@ -91,34 +85,34 @@ export async function addTicket(ticket) {
 
 // Mark and return the first waiting ticket for a service.
 export async function dequeue(tag, counterId = null) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   await requireService(db, tag)
   return ticketDao.dequeue(db, tag, today(), counterId)
 }
 
 // Inspect the first waiting ticket without removing it.
 export async function peek(tag) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   await requireService(db, tag)
   return ticketDao.peek(db, tag, today())
 }
 
 // Return the number of waiting tickets for one service.
 export async function getQueueLength(tag) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   await requireService(db, tag)
   return ticketDao.getQueueLength(db, tag, today())
 }
 
 // Return waiting-ticket counts for every configured service.
 export async function getQueueLengths() {
-  const db = await ensureToday()
+  const db = await getDatabase()
   return ticketDao.getQueueLengths(db, today())
 }
 
 // Return all waiting tickets for a service in FIFO order.
 export async function getQueue(tag) {
-  const db = await ensureToday()
+  const db = await getDatabase()
   await requireService(db, tag)
   return ticketDao.getQueue(db, tag, today())
 }

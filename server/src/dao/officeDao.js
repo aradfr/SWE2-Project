@@ -14,30 +14,44 @@ export async function getService(db, tag) {
   )
 }
 
-// Load counters and their many-to-many service assignments.
+// Load counters and their many-to-many service assignments in one query.
 export async function getCounters(db) {
-  const counters = await db.all('SELECT id FROM counters ORDER BY id')
-  for (const counter of counters) {
-    const services = await db.all(
-      'SELECT service_tag AS tag FROM counter_services WHERE counter_id = ? ORDER BY rowid',
-      [counter.id],
-    )
-    counter.services = services.map(({ tag }) => tag)
-  }
-  return counters
+  const rows = await db.all(`
+    SELECT c.id, GROUP_CONCAT(cs.service_tag) AS service_tags
+    FROM counters c
+    LEFT JOIN (
+      SELECT counter_id, service_tag
+      FROM counter_services
+      ORDER BY counter_id, rowid
+    ) cs ON c.id = cs.counter_id
+    GROUP BY c.id
+    ORDER BY c.id
+  `)
+  return rows.map(({ id, service_tags: serviceTags }) => ({
+    id,
+    services: serviceTags ? serviceTags.split(',') : [],
+  }))
 }
 
 // Numeric counter ids intentionally do not match string ids.
 export async function getCounter(db, id) {
   if (!Number.isInteger(id)) return undefined
-  const counter = await db.get('SELECT id FROM counters WHERE id = ?', [id])
-  if (!counter) return undefined
-  const services = await db.all(
-    'SELECT service_tag AS tag FROM counter_services WHERE counter_id = ? ORDER BY rowid',
-    [id],
-  )
-  counter.services = services.map(({ tag }) => tag)
-  return counter
+  const row = await db.get(`
+    SELECT c.id, GROUP_CONCAT(cs.service_tag) AS service_tags
+    FROM counters c
+    LEFT JOIN (
+      SELECT counter_id, service_tag
+      FROM counter_services
+      ORDER BY counter_id, rowid
+    ) cs ON c.id = cs.counter_id
+    WHERE c.id = ?
+    GROUP BY c.id
+  `, [id])
+  if (!row) return undefined
+  return {
+    id: row.id,
+    services: row.service_tags ? row.service_tags.split(',') : [],
+  }
 }
 
 // Seed configuration without duplicating rows when the application restarts.
@@ -57,7 +71,8 @@ export async function seedOffice(db, services, counters) {
       await db.run('INSERT INTO counters (id) VALUES (?) ON CONFLICT(id) DO NOTHING', [counter.id])
       for (const tag of counter.services) {
         await db.run(
-          'INSERT INTO counter_services (counter_id, service_tag) VALUES (?, ?) ON CONFLICT DO NOTHING',
+          `INSERT INTO counter_services (counter_id, service_tag)
+          VALUES (?, ?) ON CONFLICT DO NOTHING`,
           [counter.id, tag],
         )
       }

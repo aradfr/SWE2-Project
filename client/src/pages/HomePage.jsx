@@ -16,7 +16,7 @@ function HomePage() {
       <Row xs={1} md={3} className="g-4">
         {ROLES.map((role) => (
           <Col key={role.to}>
-            <Card className="h-100 shadow-sm">
+            <Card className="h-100 shadow-sm role-card">
               <Card.Body className="d-flex flex-column">
                 <Card.Title as="h2" className="h4">{role.title}</Card.Title>
                 <Card.Text className="flex-grow-1">{role.description}</Card.Text>

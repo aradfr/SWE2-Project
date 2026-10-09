@@ -17,7 +17,6 @@
   --bs-link-color-rgb: 66, 122, 161;
   --bs-link-hover-color: #356281;
   --bs-link-hover-color-rgb: 53, 98, 129;
-  --bs-body-bg: #ebf2fa;
 }
 
 body {
@@ -69,4 +68,31 @@ body {
 .board-screen {
   background-color: #064789;
   color: #fff;
+}
+
+/* Cards: light primary-coloured border */
+.card {
+  --bs-card-border-color: rgba(66, 122, 161, 0.35);
+}
+
+/* Role cards on the home page */
+.role-card {
+  border-top: 4px solid #064789;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.role-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0.5rem 1rem rgba(6, 71, 137, 0.15) !important;
+}
+
+/* No lift animation for users who ask the OS to reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .role-card {
+    transition: none;
+  }
+
+  .role-card:hover {
+    transform: none;
+  }
 }

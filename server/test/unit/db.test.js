@@ -92,6 +92,68 @@ describe('database', () => {
     }
   })
 
+  it('serializes concurrent transactions on the same connection', async () => {
+    const databasePath = path.join(os.tmpdir(), `office-queue-same-connection-${Date.now()}-${Math.random()}.db`)
+    databasePaths.push(databasePath)
+    const db = await openDatabase(databasePath)
+
+    try {
+      await db.run("INSERT INTO services (tag, name, service_time) VALUES ('A', 'Test', 1)")
+      await db.run('INSERT INTO counters (id) VALUES (1), (2)')
+      const issued = await Promise.all([
+        ticketDao.addTicket(db, 'A', '2026-10-08'),
+        ticketDao.addTicket(db, 'A', '2026-10-08'),
+        ticketDao.addTicket(db, 'A', '2026-10-08'),
+      ])
+      expect(issued.map((ticket) => ticket.code).sort()).toEqual(['A001', 'A002', 'A003'])
+
+      const called = await Promise.all([
+        ticketDao.dequeue(db, 'A', '2026-10-08', 1),
+        ticketDao.dequeue(db, 'A', '2026-10-08', 2),
+      ])
+      expect(called.filter(Boolean)).toHaveLength(2)
+      expect(new Set(called.map((ticket) => ticket.id)).size).toBe(2)
+    } finally {
+      await db.close()
+    }
+  })
+
+  it('keeps working after a failed transaction on the same connection', async () => {
+    const databasePath = path.join(os.tmpdir(), `office-queue-after-failure-${Date.now()}-${Math.random()}.db`)
+    databasePaths.push(databasePath)
+    const db = await openDatabase(databasePath)
+
+    try {
+      await db.run("INSERT INTO services (tag, name, service_time) VALUES ('A', 'Test', 1)")
+      const results = await Promise.allSettled([
+        ticketDao.addTicket(db, 'MISSING', '2026-10-08'),
+        ticketDao.addTicket(db, 'A', '2026-10-08'),
+      ])
+      expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled'])
+      expect(results[1].value.code).toBe('A001')
+    } finally {
+      await db.close()
+    }
+  })
+
+  it('restarts the ticket number from 000 after 999', async () => {
+    const databasePath = path.join(os.tmpdir(), `office-queue-wrap-${Date.now()}-${Math.random()}.db`)
+    databasePaths.push(databasePath)
+    const db = await openDatabase(databasePath)
+
+    try {
+      await db.run("INSERT INTO services (tag, name, service_time) VALUES ('A', 'Test', 1)")
+      await db.run(
+        "INSERT INTO tickets (code, service_tag, sequence_number, status, queue_day) VALUES ('A998', 'A', 998, 'waiting', '2026-10-08')",
+      )
+      const codes = []
+      for (let i = 0; i < 3; i++) codes.push((await ticketDao.addTicket(db, 'A', '2026-10-08')).code)
+      expect(codes).toEqual(['A999', 'A000', 'A001'])
+    } finally {
+      await db.close()
+    }
+  })
+
   it('omits issuedAt when the caller explicitly supplies null', async () => {
     const databasePath = path.join(os.tmpdir(), `office-queue-null-date-${Date.now()}-${Math.random()}.db`)
     databasePaths.push(databasePath)

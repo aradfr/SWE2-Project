@@ -6,13 +6,14 @@ info:
     Backend API for the Office Queue Management System (SE2 project).
     Sprint 1 covers the "Get ticket" story: a customer selects a service
     type and receives a ticket with a unique wait-list code.
-    Storage is in-memory; queues are reset every morning (see POST /api/test/reset).
+    Data is stored in SQLite; queues restart every morning (POST /api/test/reset).
 servers:
   - url: http://localhost:3001
     description: Local development
 tags:
   - name: services
   - name: tickets
+  - name: counters
   - name: test-utils
 paths:
   /api/services:
@@ -59,6 +60,60 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Unknown service type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/counters:
+    get:
+      tags: [counters]
+      summary: List the counters and the services each one handles
+      operationId: getCounters
+      responses:
+        '200':
+          description: List of counters
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [counters]
+                properties:
+                  counters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Counter'
+  /api/counters/{id}/next:
+    post:
+      tags: [counters]
+      summary: Call the next customer to a counter
+      description: Serves the longest queue of the counter; on a tie, the one with the lowest service time.
+      operationId: callNextCustomer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Numeric counter id
+          schema:
+            type: integer
+            minimum: 1
+          example: 2
+      responses:
+        '200':
+          description: Ticket called to the counter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalledTicket'
+        '204':
+          description: No customers waiting for the services of this counter
+        '400':
+          description: The counter id is not a positive integer (only digits, no leading zero)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown counter
           content:
             application/json:
               schema:
@@ -125,6 +180,33 @@ components:
           type: string
           enum: [waiting, called, served]
           example: waiting
+    Counter:
+      type: object
+      required: [id, services]
+      properties:
+        id:
+          type: integer
+          example: 2
+        services:
+          type: array
+          description: Tags of the service types handled by the counter
+          items:
+            type: string
+          example: [A, B]
+    CalledTicket:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          required: [counterId]
+          properties:
+            status:
+              type: string
+              enum: [called]
+              example: called
+            counterId:
+              type: integer
+              description: Counter the customer must go to
+              example: 2
     Error:
       type: object
       required: [error]

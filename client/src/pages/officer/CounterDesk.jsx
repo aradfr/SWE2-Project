@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Row, Spinner } from 'react-bootstrap'
 import PageLayout from '../../components/PageLayout.jsx'
-import { ApiError, callNextCustomer, getCounters, getServices } from '../../api/officer.js'
+import { ApiError, callNextCustomer, getCounters, getCurrentTicket, getServices } from '../../api/officer.js'
 
 // Texts and data-testid values are used by the E2E tests: keep them unchanged.
 
@@ -47,6 +47,20 @@ function CounterDesk({ counterId }) {
         }
         setServiceNames(Object.fromEntries(services.map((service) => [service.tag, service.name])))
         setCounterServices(counter.services)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [counterId])
+
+  // After a refresh, show the ticket the counter is serving. A ticket called
+  // in the meantime is more recent: keep it. On errors the page works as before.
+  useEffect(() => {
+    let active = true
+    getCurrentTicket(counterId)
+      .then((current) => {
+        if (active && current) setTicket((latest) => latest ?? current)
       })
       .catch(() => {})
     return () => {
@@ -112,7 +126,7 @@ function CounterDesk({ counterId }) {
             </Button>
           </div>
 
-          <div className="mt-3" aria-live="polite">
+          <div className="mt-3">
             {message === 'empty' && (
               <Alert variant="warning">
                 <span aria-hidden="true">⚠ </span>No customers waiting

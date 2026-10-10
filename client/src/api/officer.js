@@ -62,3 +62,18 @@ export async function getServices() {
 export function callNextCustomer(counterId) {
   return apiFetch(`/counters/${counterId}/next`, { method: 'POST' })
 }
+
+/**
+ * The ticket currently called by the counter (last called today, not finished), or null.
+ * @param {number} counterId
+ * @returns {Promise<Ticket | null>}
+ * @throws {ApiError} If the server answers with an error status.
+ * @throws {Error} If the server cannot be reached.
+ */
+export async function getCurrentTicket(counterId) {
+  // ---- TEMP: no API yet (current ticket of a counter) ----
+  // Replace with the call to the API when it exists.
+  void counterId
+  return null
+  // ---- END TEMP ----
+}

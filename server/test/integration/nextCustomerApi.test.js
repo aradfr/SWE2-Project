@@ -444,5 +444,10 @@ describe('unexpected errors', () => {
       await db.run('ALTER TABLE tickets_broken RENAME TO tickets')
       consoleError.mockRestore()
     }
+
+    // The failed call must not leave a partial change: the ticket is still waiting
+    expect(await readTickets()).toEqual([
+      expect.objectContaining({ code: 'A001', status: 'waiting', counter_id: null, called_at: null }),
+    ])
   })
 })

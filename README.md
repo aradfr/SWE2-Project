@@ -10,8 +10,7 @@ a display board shows queue lengths, managers see statistics.
 ```
 server/   Express REST API (ES modules)
 client/   React + Vite frontend
-e2e/      Playwright end-to-end tests
-docs/     openapi.yaml - the API contract (also served live at /api/docs)
+docs/     openapi.yaml - the API contract
 ```
 
 ## Server structure
@@ -35,9 +34,9 @@ will become async when the database arrives, with the same function names.
   persistence requirement, so no DB in sprint 1. The storage layer is isolated
   in `server/src/store.js` so a real DB can replace it without touching routes.
 - **API-first**: `docs/openapi.yaml` is the contract. Frontend and backend work
-  happen in parallel against it. Interactive docs at `http://localhost:3001/api/docs`.
+  happen in parallel against it.
 - **Testing**: Vitest everywhere, Supertest for HTTP integration tests,
-  React Testing Library for the client, Playwright for E2E.
+  React Testing Library for the client, Playwright for E2E (not set up yet).
 
 ## Quick start
 
@@ -72,8 +71,21 @@ Team rules:
 
 ```bash
 npm test                    # server + client unit/integration tests
-npm run test:e2e            # Playwright E2E (first time: cd e2e && npm install && npx playwright install --with-deps chromium)
 ```
+
+E2E tests (Playwright) are not set up yet: `npm run test:e2e` will fail until they are.
+
+## API (Sprint 1)
+
+| Method | Path               | Success        | Errors                                       |
+| ------ | ------------------ | -------------- | -------------------------------------------- |
+| GET    | `/api/health`      | 200 `{status}` |                                              |
+| GET    | `/api/services`    | 200 `{services}` |                                            |
+| POST   | `/api/tickets`     | 201 ticket     | 400 invalid body, 404 unknown service type   |
+| POST   | `/api/test/reset`  | 204            | 403 unless `NODE_ENV=test`                   |
+
+All errors use the body `{ "error": "message" }`. Any other `/api` path or
+method returns 404 with the same body. Full contract: `docs/openapi.yaml`.
 
 ## Git workflow
 

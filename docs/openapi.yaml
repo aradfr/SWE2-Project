@@ -7,14 +7,36 @@ info:
     Sprint 1 covers the "Get ticket" story: a customer selects a service
     type and receives a ticket with a wait-list code (e.g. A001).
     Storage is in-memory; queues are reset every morning (see POST /api/test/reset).
+
+    Unknown routes: any request under /api that does not match a path and
+    method below gets 404 with the Error body (see components/responses/NotFound).
+    All error responses use the Error schema: { "error": "message" }.
 servers:
   - url: http://localhost:3001
     description: Local development
 tags:
+  - name: health
   - name: services
   - name: tickets
   - name: test-utils
 paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Check that the server is running
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
   /api/services:
     get:
       tags: [services]
@@ -134,3 +156,14 @@ components:
         error:
           type: string
           example: serviceType is required
+  responses:
+    NotFound:
+      description: >
+        No route matches the request (unknown path or method under /api).
+        Applies to every path not listed in this document.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'Not found: GET /api/nope'

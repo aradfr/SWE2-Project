@@ -104,6 +104,7 @@ export async function getLastCalledTickets(db, day) {
      FROM services s
      LEFT JOIN tickets t ON t.service_tag = s.tag
        AND t.queue_day = ? AND t.status = 'called'
+       -- Exclude older calls for the same service and counter.
        AND NOT EXISTS (
          SELECT 1 FROM tickets newer
          WHERE newer.service_tag = t.service_tag

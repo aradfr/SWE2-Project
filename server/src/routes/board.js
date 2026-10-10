@@ -1,4 +1,4 @@
-// Board snapshot and live updates.
+// GET /api/board - get the current state of the board (latest called tickets and queue lengths).
 
 import { Router } from 'express'
 import { subscribeToBoardEvents } from '../events.js'
@@ -14,6 +14,7 @@ router.get('/events', async (req, res) => {
   let ready = false
   const pendingEvents = []
   let heartbeat
+  // Subscribe before loading the snapshot so events during the read are buffered.
   const unsubscribe = subscribeToBoardEvents((eventName, data) => {
     if (!ready) {
       pendingEvents.push({ eventName, data })
@@ -42,6 +43,7 @@ router.get('/events', async (req, res) => {
     writeBoardEvent(res, 'board-state', boardState)
     ready = true
 
+    // Replay changes that arrived while the initial database snapshot was loading.
     for (const { eventName, data } of pendingEvents) {
       writeBoardEvent(res, eventName, data)
     }

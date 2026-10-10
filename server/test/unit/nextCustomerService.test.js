@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getCounter, getServices, getQueueLengths, dequeue } from '../../src/store.js'
+import { getCounter, getServices, callNext } from '../../src/store.js'
 import {
   CounterNotFoundError,
   selectQueue,
@@ -11,8 +11,7 @@ import {
 vi.mock('../../src/store.js', () => ({
   getCounter: vi.fn(),
   getServices: vi.fn(),
-  getQueueLengths: vi.fn(),
-  dequeue: vi.fn(),
+  callNext: vi.fn(),
 }))
 
 // Seed services: A Payments 3 min, B Banking 5 min, C Shipping 10 min.
@@ -29,6 +28,13 @@ const fakeTicket = (tag) => ({
   issuedAt: '2026-10-09T09:00:00.000Z',
   status: 'called',
 })
+
+// Behaves like store.callNext: applies the choice to the current queue lengths
+// (only services with waiting tickets) and calls the first ticket of the chosen queue.
+const fakeCallNext = (lengths) => async (counterId, choose) => {
+  const tag = choose(lengths)
+  return tag === null ? null : fakeTicket(tag)
+}
 
 describe('selectQueue', () => {
   // The queue length decides first, regardless of service time and order.
@@ -138,90 +144,97 @@ describe('buildCandidates', () => {
 
 describe('callNextCustomer', () => {
   beforeEach(() => {
-    // Default store: counter 2 of the seed (A, B), seed services, dequeue returns a called ticket.
+    // Default store: counter 2 of the seed (A, B), seed services, no waiting tickets.
     vi.resetAllMocks()
     getCounter.mockImplementation(async (id) => (id === 2 ? { id: 2, services: ['A', 'B'] } : null))
     getServices.mockResolvedValue(seedServices())
-    dequeue.mockImplementation(async (tag) => fakeTicket(tag))
+    callNext.mockImplementation(fakeCallNext({}))
   })
+
+  // Returns the choice function that callNextCustomer passed to store.callNext.
+  const captureChoose = async () => {
+    await callNextCustomer(2)
+    return callNext.mock.calls[0][1]
+  }
 
   // An unknown counter is an error, and no ticket must be taken from any queue.
   it('throws CounterNotFoundError for an unknown counter', async () => {
-    getQueueLengths.mockResolvedValue({ A: 1, B: 1, C: 1 })
+    callNext.mockImplementation(fakeCallNext({ A: 1, B: 1, C: 1 }))
 
     const error = await callNextCustomer(99).catch((err) => err)
 
     expect(error).toBeInstanceOf(CounterNotFoundError)
     expect(error.id).toBe(99)
     expect(error.name).toBe('CounterNotFoundError')
-    expect(dequeue).not.toHaveBeenCalled()
+    expect(callNext).not.toHaveBeenCalled()
   })
 
-  // Empty counter queues mean nobody is called, even if another service has customers.
-  it('returns null and calls nobody when the counter queues are empty', async () => {
-    getQueueLengths.mockResolvedValue({ A: 0, B: 0, C: 5 })
+  // Nobody is called when only a service the counter does not handle has customers.
+  it('returns null when the counter queues are empty', async () => {
+    callNext.mockImplementation(fakeCallNext({ C: 5 }))
 
     expect(await callNextCustomer(2)).toBeNull()
-    expect(dequeue).not.toHaveBeenCalled()
   })
 
-  // The first ticket of the longest queue is taken for this counter and returned with its id.
-  it('calls the first ticket of the chosen queue and adds the counter id', async () => {
-    getQueueLengths.mockResolvedValue({ A: 1, B: 3, C: 0 })
+  // The ticket is called once for this counter, from the longest queue, and returned with the counter id.
+  it('calls the first ticket of the chosen queue for this counter and adds the counter id', async () => {
+    callNext.mockImplementation(fakeCallNext({ A: 1, B: 3 }))
 
     const result = await callNextCustomer(2)
 
-    expect(dequeue).toHaveBeenCalledTimes(1)
-    expect(dequeue).toHaveBeenCalledWith('B', 2)
+    expect(callNext).toHaveBeenCalledTimes(1)
+    expect(callNext.mock.calls[0][0]).toBe(2)
     expect(result).toMatchObject({ code: 'B001', status: 'called', counterId: 2 })
   })
 
   // A longer queue of a service the counter does not handle must not be chosen.
   it('ignores queues of services the counter does not handle', async () => {
-    getQueueLengths.mockResolvedValue({ A: 1, B: 0, C: 9 })
-
-    await callNextCustomer(2)
-
-    expect(dequeue).toHaveBeenCalledWith('A', 2)
-  })
-
-  // If another counter takes the last ticket first, the queues are read again and another one is served.
-  it('serves another counter queue if the chosen one was emptied meanwhile', async () => {
-    getQueueLengths
-      .mockResolvedValueOnce({ A: 1, B: 1 })
-      .mockResolvedValueOnce({ A: 0, B: 1 })
-    dequeue.mockImplementation(async (tag) => (tag === 'A' ? null : fakeTicket(tag)))
+    callNext.mockImplementation(fakeCallNext({ A: 1, C: 9 }))
 
     const result = await callNextCustomer(2)
 
-    expect(result).toMatchObject({ code: 'B001', counterId: 2 })
-    expect(getQueueLengths).toHaveBeenCalledTimes(2)
+    expect(result).toMatchObject({ code: 'A001' })
   })
 
-  // A counter without services has nothing to serve.
+  // A counter without services has nothing to serve, even if every queue has customers.
   it('returns null for a counter without services', async () => {
     getCounter.mockResolvedValue({ id: 4, services: [] })
-    getQueueLengths.mockResolvedValue({ A: 1, B: 1, C: 1 })
+    callNext.mockImplementation(fakeCallNext({ A: 1, B: 1, C: 1 }))
 
     expect(await callNextCustomer(4)).toBeNull()
-    expect(dequeue).not.toHaveBeenCalled()
   })
 
-  // A store failure must reach the caller, not be hidden as "nobody to call".
+  // A failure while calling the ticket must reach the caller, not be hidden as "nobody to call".
   it('propagates a store error instead of returning null', async () => {
     const storeError = new Error('DB down')
-    getServices.mockRejectedValue(storeError)
-    getQueueLengths.mockResolvedValue({ A: 1, B: 1 })
+    callNext.mockRejectedValue(storeError)
 
     await expect(callNextCustomer(2)).rejects.toBe(storeError)
   })
 
-  // Under continuous contention the call must end with null after a bounded number of attempts.
-  it('gives up after a limited number of attempts instead of looping forever', async () => {
-    getQueueLengths.mockResolvedValue({ A: 1, B: 0 })
-    dequeue.mockResolvedValue(null)
+  // A failure while reading the services must reach the caller, and no ticket must be called.
+  it('propagates an error while reading the services', async () => {
+    const storeError = new Error('DB down')
+    getServices.mockRejectedValue(storeError)
 
-    expect(await callNextCustomer(2)).toBeNull()
-    expect(dequeue.mock.calls.length).toBeLessThanOrEqual(3)
+    await expect(callNextCustomer(2)).rejects.toBe(storeError)
+    expect(callNext).not.toHaveBeenCalled()
+  })
+
+  // The choice run inside the transaction must apply the selection rule to the counter services only.
+  it('passes callNext a choice that applies the selection rule to the counter services', async () => {
+    const choose = await captureChoose()
+
+    expect(choose({ A: 2, B: 2 })).toBe('A')
+    expect(choose({ A: 1, B: 3 })).toBe('B')
+    expect(choose({ C: 9 })).toBeNull()
+    expect(choose({})).toBeNull()
+  })
+
+  // The store only reports services with waiting tickets: a missing service is an empty queue.
+  it('treats services missing from the lengths as empty queues', async () => {
+    const choose = await captureChoose()
+
+    expect(choose({ B: 1 })).toBe('B')
   })
 })

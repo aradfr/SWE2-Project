@@ -1,6 +1,6 @@
 /* Next customer service: business logic of the "Next customer" story. */
 
-import { getCounter, getServices, getQueueLengths, dequeue } from '../store.js'
+import { getCounter, getServices, callNext } from '../store.js'
 
 // Thrown when a counter id does not match any counter.
 export class CounterNotFoundError extends Error {
@@ -41,23 +41,17 @@ export function buildCandidates(counterServices, services, lengths) {
 }
 
 
-const MAX_ATTEMPTS = 3 // limit to avoid an endless loop
-
 export async function callNextCustomer(counterId) {
   const counter = await getCounter(counterId)
   if (counter === null) throw new CounterNotFoundError(counterId)
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    // Two queries instead of one per service: all service times and all queue lengths
-    const [services, lengths] = await Promise.all([getServices(), getQueueLengths()])
+  // Service times are static configuration: they can be read outside the transaction
+  const services = await getServices()
 
-    const tag = selectQueue(buildCandidates(counter.services, services, lengths))
-    if (tag === null) return null // all queues of this counter are empty
+  // Queue lengths are read, the queue is chosen and its first ticket is called
+  // in one DB transaction, so concurrent counters never use stale lengths
+  const ticket = await callNext(counter.id, (lengths) =>
+    selectQueue(buildCandidates(counter.services, services, lengths)))
 
-    // dequeue saves the counter id and the call time on the ticket (status 'called')
-    const ticket = await dequeue(tag, counter.id)
-    if (ticket !== null) return { ...ticket, counterId: counter.id }
-  }
-
-  return null
+  return ticket === null ? null : { ...ticket, counterId: counter.id }
 }

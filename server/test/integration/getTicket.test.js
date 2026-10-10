@@ -12,6 +12,12 @@ import app from '../../src/app.js'
 import { close, getQueue, getQueueLength } from '../../src/store.js'
 import { SERVICES } from '../../src/seed.js'
 
+// Expectations come from the seed, so changing the seed does not break these tests.
+// The tests need at least three services and an unused tag.
+const [first, second, third] = SERVICES.map((s) => s.tag)
+const UNKNOWN_TAG = 'Z'
+const code = (tag, n) => `${tag}${String(n).padStart(3, '0')}`
+
 // The store opens the database lazily on first use, so setting the path
 // before any request is enough (imports above do not open it).
 const dbPath = path.join(os.tmpdir(), `oqm-get-ticket-${process.pid}-${Date.now()}.db`)
@@ -70,11 +76,11 @@ describe('GET /api/services', () => {
 describe('POST /api/tickets', () => {
   // Main scenario of the story: the customer selects a service and gets a ticket.
   it('issues a waiting ticket with the Ticket schema', async () => {
-    const res = await takeTicket('A').expect(201).expect('Content-Type', /json/)
+    const res = await takeTicket(first).expect(201).expect('Content-Type', /json/)
     expect(res.body).toEqual({
       id: expect.any(Number),
-      code: 'A001',
-      serviceType: 'A',
+      code: code(first, 1),
+      serviceType: first,
       issuedAt: expect.any(String),
       status: 'waiting',
     })
@@ -84,25 +90,25 @@ describe('POST /api/tickets', () => {
 
   // The ticket really enters the queue of its service, which the other stories read.
   it('adds the ticket to the queue of its service only', async () => {
-    const { body: ticket } = await takeTicket('B').expect(201)
-    expect(await getQueueLength('B')).toBe(1)
-    expect(await getQueueLength('A')).toBe(0)
-    expect(await getQueueLength('C')).toBe(0)
-    const [queued] = await getQueue('B')
+    const { body: ticket } = await takeTicket(second).expect(201)
+    for (const { tag } of SERVICES) {
+      expect(await getQueueLength(tag)).toBe(tag === second ? 1 : 0)
+    }
+    const [queued] = await getQueue(second)
     // The store's queue view omits status for waiting tickets: only id and code are compared.
-    expect(queued).toMatchObject({ id: ticket.id, code: 'B001' })
+    expect(queued).toMatchObject({ id: ticket.id, code: code(second, 1) })
   })
 
   // Numbering is per service; ids are global and unique.
   it('numbers tickets per service and keeps ids unique', async () => {
     const codes = []
     const ids = []
-    for (const tag of ['A', 'A', 'B', 'A', 'C']) {
+    for (const tag of [first, first, second, first, third]) {
       const { body } = await takeTicket(tag).expect(201)
       codes.push(body.code)
       ids.push(body.id)
     }
-    expect(codes).toEqual(['A001', 'A002', 'B001', 'A003', 'C001'])
+    expect(codes).toEqual([code(first, 1), code(first, 2), code(second, 1), code(first, 3), code(third, 1)])
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -111,11 +117,11 @@ describe('POST /api/tickets', () => {
   // reaches this branch: without it, parallel requests share one SQLite connection and
   // nested BEGIN IMMEDIATE answers 500. Verified to pass once that commit is applied.
   it('issues distinct codes for simultaneous requests', async () => {
-    const responses = await Promise.all(Array.from({ length: 5 }, () => takeTicket('A')))
+    const responses = await Promise.all(Array.from({ length: 5 }, () => takeTicket(first)))
     expect(responses.map((r) => r.status)).toEqual([201, 201, 201, 201, 201])
     const codes = responses.map((r) => r.body.code).sort()
-    expect(codes).toEqual(['A001', 'A002', 'A003', 'A004', 'A005'])
-    expect(await getQueueLength('A')).toBe(5)
+    expect(codes).toEqual([1, 2, 3, 4, 5].map((n) => code(first, n)))
+    expect(await getQueueLength(first)).toBe(5)
   })
 
   // Malformed requests -> 400 { error }, never 404 or 500.
@@ -124,15 +130,22 @@ describe('POST /api/tickets', () => {
     ['an empty object', () => json({}), 'serviceType is required'],
     ['a numeric serviceType', () => json({ serviceType: 42 }), 'serviceType must be a non-empty string'],
     ['a blank serviceType', () => json({ serviceType: '  ' }), 'serviceType must be a non-empty string'],
-    ['an array body', () => json(['A']), 'request body must be a JSON object'],
+    ['an array body', () => json([first]), 'request body must be a JSON object'],
     ['malformed JSON', () => json('{bad'), 'invalid JSON body'],
   ])('answers 400 for %s', async (_label, send, message) => {
     const res = await send().expect(400).expect('Content-Type', /json/)
     expect(res.body).toEqual({ error: message })
   })
 
+  // Seed guard: the tests above and below rely on these properties of the seed.
+  it('has a seed the tests can rely on', () => {
+    expect(SERVICES.length).toBeGreaterThanOrEqual(3)
+    expect(SERVICES.map((s) => s.tag)).not.toContain(UNKNOWN_TAG)
+    expect(SERVICES.map((s) => s.tag)).not.toContain(first.toLowerCase())
+  })
+
   // Unknown service tags (tags are case-sensitive) -> 404 { error }.
-  it.each(['Z', 'a'])('answers 404 for unknown service type %s', async (tag) => {
+  it.each([UNKNOWN_TAG, first.toLowerCase()])('answers 404 for unknown service type %s', async (tag) => {
     const res = await takeTicket(tag).expect(404).expect('Content-Type', /json/)
     expect(res.body).toEqual({ error: `Unknown service type: ${tag}` })
   })
@@ -140,11 +153,11 @@ describe('POST /api/tickets', () => {
   // A rejected request must not consume a number nor add anything to a queue.
   it('does not consume a number on rejected requests', async () => {
     await json({}).expect(400)
-    await takeTicket('Z').expect(404)
+    await takeTicket(UNKNOWN_TAG).expect(404)
     await json('{bad').expect(400)
-    const { body } = await takeTicket('A').expect(201)
-    expect(body.code).toBe('A001')
-    expect(await getQueueLength('A')).toBe(1)
+    const { body } = await takeTicket(first).expect(201)
+    expect(body.code).toBe(code(first, 1))
+    expect(await getQueueLength(first)).toBe(1)
   })
 })
 
@@ -164,24 +177,24 @@ describe('unknown /api routes', () => {
 describe('POST /api/test/reset', () => {
   // Morning reset: queues are emptied and numbering restarts.
   it('answers 204 and restarts numbering and ids', async () => {
-    await takeTicket('A').expect(201)
-    await takeTicket('B').expect(201)
+    await takeTicket(first).expect(201)
+    await takeTicket(second).expect(201)
     const res = await request(app).post('/api/test/reset').expect(204)
     expect(res.text).toBe('')
-    expect(await getQueueLength('A')).toBe(0)
-    const { body } = await takeTicket('A').expect(201)
-    expect(body).toMatchObject({ id: 1, code: 'A001' })
+    expect(await getQueueLength(first)).toBe(0)
+    const { body } = await takeTicket(first).expect(201)
+    expect(body).toMatchObject({ id: 1, code: code(first, 1) })
   })
 
   // Outside test mode the reset is refused and data is kept.
   it('answers 403 and keeps the data when NODE_ENV is not test', async () => {
-    await takeTicket('A').expect(201)
+    await takeTicket(first).expect(201)
     vi.stubEnv('NODE_ENV', 'production')
     const res = await request(app).post('/api/test/reset').expect(403).expect('Content-Type', /json/)
     expect(res.body).toEqual({ error: 'reset is only available in test mode' })
     vi.stubEnv('NODE_ENV', 'test')
-    const { body } = await takeTicket('A').expect(201)
-    expect(body.code).toBe('A002')
+    const { body } = await takeTicket(first).expect(201)
+    expect(body.code).toBe(code(first, 2))
   })
 })
 

@@ -12,6 +12,12 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { getServices, createTicket } from '../../src/api/customer.js'
 import { ApiError } from '../../src/api/client.js'
+import { SERVICES } from '../../../server/src/seed.js'
+
+// Expectations come from the server seed, so changing the seed does not break these tests.
+// The tests need at least two services (per-service numbering) and an unused tag.
+const [first, second] = SERVICES.map((s) => s.tag)
+const UNKNOWN_TAG = 'Z'
 
 const dbPath = path.join(os.tmpdir(), `oqm-client-get-ticket-${Date.now()}-${Math.random()}.db`)
 
@@ -54,25 +60,24 @@ describe('getServices (client -> server)', () => {
   // The kiosk shows the services configured on the server.
   it('returns the services configured on the server', async () => {
     const services = await getServices()
-    expect(services.map((s) => s.tag)).toEqual(['A', 'B', 'C'])
-    for (const service of services) {
-      expect(service).toEqual({
-        tag: expect.any(String),
-        name: expect.any(String),
-        serviceTime: expect.any(Number),
-      })
-    }
+    expect(services).toEqual(SERVICES.map((s) => ({ ...s })))
   })
 })
 
 describe('createTicket (client -> server)', () => {
+  // Guard for the seed-based expectations below.
+  it('has a seed the tests can rely on', () => {
+    expect(SERVICES.length).toBeGreaterThanOrEqual(2)
+    expect(SERVICES.map((s) => s.tag)).not.toContain(UNKNOWN_TAG)
+  })
+
   // Main scenario: the customer selects a service and receives a ticket.
   it('returns a waiting ticket from the server', async () => {
-    const ticket = await createTicket('A')
+    const ticket = await createTicket(first)
     expect(ticket).toEqual({
       id: expect.any(Number),
-      code: 'A001',
-      serviceType: 'A',
+      code: `${first}001`,
+      serviceType: first,
       issuedAt: expect.any(String),
       status: 'waiting',
     })
@@ -81,8 +86,8 @@ describe('createTicket (client -> server)', () => {
   // Codes come from the server's per-service numbering.
   it('gets per-service codes for consecutive tickets', async () => {
     const codes = []
-    for (const tag of ['A', 'B', 'A']) codes.push((await createTicket(tag)).code)
-    expect(codes).toEqual(['A001', 'B001', 'A002'])
+    for (const tag of [first, second, first]) codes.push((await createTicket(tag)).code)
+    expect(codes).toEqual([`${first}001`, `${second}001`, `${first}002`])
   })
 
   // Every service listed by the server can be selected.
@@ -95,10 +100,10 @@ describe('createTicket (client -> server)', () => {
 
   // Unknown service: the page receives ApiError 404 with the server message.
   it('rejects an unknown service with ApiError 404', async () => {
-    const error = await createTicket('Z').catch((err) => err)
+    const error = await createTicket(UNKNOWN_TAG).catch((err) => err)
     expect(error).toBeInstanceOf(ApiError)
     expect(error.status).toBe(404)
-    expect(error.message).toBe('Unknown service type: Z')
+    expect(error.message).toBe(`Unknown service type: ${UNKNOWN_TAG}`)
   })
 
   // Invalid request: ApiError 400 with the server's validation message.
@@ -111,8 +116,8 @@ describe('createTicket (client -> server)', () => {
 
   // A rejected attempt does not use up a number.
   it('does not consume a number on a rejected request', async () => {
-    await createTicket('Z').catch(() => {})
-    expect((await createTicket('A')).code).toBe('A001')
+    await createTicket(UNKNOWN_TAG).catch(() => {})
+    expect((await createTicket(first)).code).toBe(`${first}001`)
   })
 })
 

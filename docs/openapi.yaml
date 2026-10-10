@@ -64,6 +64,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/counters:
+    get:
+      tags: [counters]
+      summary: List the counters and the services each one handles
+      operationId: getCounters
+      responses:
+        '200':
+          description: List of counters
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [counters]
+                properties:
+                  counters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Counter'
   /api/counters/{id}/next:
     post:
       tags: [counters]
@@ -89,7 +107,7 @@ paths:
         '204':
           description: No customers waiting for the services of this counter
         '400':
-          description: The counter id is not a positive integer
+          description: The counter id is not a positive integer (only digits, no leading zero)
           content:
             application/json:
               schema:
@@ -162,6 +180,19 @@ components:
           type: string
           enum: [waiting, called, served]
           example: waiting
+    Counter:
+      type: object
+      required: [id, services]
+      properties:
+        id:
+          type: integer
+          example: 2
+        services:
+          type: array
+          description: Tags of the service types handled by the counter
+          items:
+            type: string
+          example: [A, B]
     CalledTicket:
       allOf:
         - $ref: '#/components/schemas/Ticket'

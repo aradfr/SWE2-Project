@@ -5,16 +5,39 @@ info:
   description: >
     Backend API for the Office Queue Management System (SE2 project).
     Sprint 1 covers the "Get ticket" story: a customer selects a service
-    type and receives a ticket with a unique wait-list code.
+    type and receives a ticket with a wait-list code (e.g. A001).
     Storage is in-memory; queues are reset every morning (see POST /api/test/reset).
+
+    Unknown routes: any request under /api that does not match a path and
+    method below gets 404 with the Error body (see components/responses/NotFound).
+    All error responses use the Error schema: { "error": "message" }.
 servers:
   - url: http://localhost:3001
     description: Local development
 tags:
+  - name: health
   - name: services
   - name: tickets
+  - name: board
   - name: test-utils
 paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Check that the server is running
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
   /api/services:
     get:
       tags: [services]
@@ -63,6 +86,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/board:
+    get:
+      tags: [board]
+      summary: Get the latest called ticket per service and counter, and waiting counts
+      operationId: getBoardState
+      responses:
+        '200':
+          description: Current state for the display board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardState'
+  /api/board/events:
+    get:
+      tags: [board]
+      summary: Subscribe to live display-board events
+      operationId: subscribeToBoardEvents
+      responses:
+        '200':
+          description: >
+            Server-sent events. The initial board-state event contains a BoardState
+            JSON object. Subsequent events use the published event name, currently
+            ticket-called, and carry the JSON payload supplied by the publisher.
+          content:
+            text/event-stream:
+              schema:
+                type: string
   /api/test/reset:
     post:
       tags: [test-utils]
@@ -89,11 +139,11 @@ components:
           example: A
         name:
           type: string
-          example: Shipping
+          example: Payments
         serviceTime:
           type: integer
           description: Average time to serve this request type, in minutes
-          example: 5
+          example: 3
     NewTicket:
       type: object
       required: [serviceType]
@@ -112,9 +162,11 @@ components:
         code:
           type: string
           description: >
-            Wait-list code shown to the customer. Zero-padded daily sequence,
-            unique for the whole office (queues reset every morning).
-          example: '001'
+            Wait-list code shown to the customer: service tag + 3-digit number
+            per service (A001, A002…, B001…). Numbers restart from 001 every
+            morning and after 999. Unique within the day unless a service
+            exceeds 999 tickets; the `id` is always unique.
+          example: 'A001'
         serviceType:
           type: string
           example: A
@@ -125,6 +177,36 @@ components:
           type: string
           enum: [waiting, called, served]
           example: waiting
+    LastCalledTicket:
+      type: object
+      required: [name, code, counterId, calledAt]
+      properties:
+        name:
+          type: string
+          description: Display name of the service type
+        code:
+          type: string
+          example: A001
+        counterId:
+          type: integer
+        calledAt:
+          type: string
+          description: Call time as stored by SQLite
+    BoardState:
+      type: object
+      required: [board, queueLengths]
+      properties:
+        board:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/LastCalledTicket'
+        queueLengths:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
     Error:
       type: object
       required: [error]
@@ -132,3 +214,14 @@ components:
         error:
           type: string
           example: serviceType is required
+  responses:
+    NotFound:
+      description: >
+        No route matches the request (unknown path or method under /api).
+        Applies to every path not listed in this document.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'Not found: GET /api/nope'

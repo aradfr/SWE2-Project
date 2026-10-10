@@ -58,11 +58,23 @@ describe('selectQueue', () => {
     expect(selectQueue(candidates)).toBe('A')
   })
 
-  // TODO: tie-break rule asked to the PO
-  it.todo('on equal length and service time uses the agreed tie-break (A listed first)')
+  // PO: no preference on a full tie; the team keeps the configuration order (first candidate wins).
+  it('on equal length and service time keeps the first candidate (A listed first)', () => {
+    const candidates = [
+      { tag: 'A', serviceTime: 3, length: 2 },
+      { tag: 'B', serviceTime: 3, length: 2 },
+    ]
+    expect(selectQueue(candidates)).toBe('A')
+  })
 
-  // TODO: tie-break rule asked to the PO
-  it.todo('on equal length and service time uses the agreed tie-break (B listed first)')
+  // PO: no preference on a full tie; the team keeps the configuration order (first candidate wins).
+  it('on equal length and service time keeps the first candidate (B listed first)', () => {
+    const candidates = [
+      { tag: 'B', serviceTime: 3, length: 2 },
+      { tag: 'A', serviceTime: 3, length: 2 },
+    ]
+    expect(selectQueue(candidates)).toBe('B')
+  })
 
   // Nobody can be called when every queue of the counter is empty.
   it('returns null when all queues are empty', () => {

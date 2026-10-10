@@ -96,6 +96,33 @@ export async function getQueueLengths(db, day) {
   return Object.fromEntries(rows.map(({ tag, length }) => [tag, length]))
 }
 
+// Return the latest called ticket for each service and counter.
+export async function getLastCalledTickets(db, day) {
+  const rows = await db.all(
+    `SELECT s.tag, s.name, t.code, t.counter_id AS counterId,
+      t.called_at AS calledAt
+     FROM services s
+     LEFT JOIN tickets t ON t.service_tag = s.tag
+       AND t.queue_day = ? AND t.status = 'called'
+       AND NOT EXISTS (
+         SELECT 1 FROM tickets newer
+         WHERE newer.service_tag = t.service_tag
+           AND newer.queue_day = t.queue_day
+           AND newer.status = 'called'
+           AND newer.counter_id IS t.counter_id
+           AND newer.id > t.id
+       )
+     ORDER BY s.rowid, t.counter_id, t.id DESC`,
+    [day],
+  )
+  const ticketsCalledByService = {}
+  for (const { tag, name, code, counterId, calledAt } of rows) {
+    ticketsCalledByService[tag] ??= []
+    if (code !== null) ticketsCalledByService[tag].push({ name, code, counterId, calledAt })
+  }
+  return ticketsCalledByService
+}
+
 // Return current-day waiting tickets in FIFO order for one service.
 export async function getQueue(db, tag, day) {
   const rows = await db.all(

@@ -1,4 +1,5 @@
 import express from 'express'
+import boardRouter from './routes/board.js'
 import servicesRouter from './routes/services.js'
 import ticketsRouter from './routes/tickets.js'
 import testRouter from './routes/test.js'
@@ -13,6 +14,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
+app.use('/api/board', boardRouter)
 app.use('/api/services', servicesRouter)
 app.use('/api/tickets', ticketsRouter)
 app.use('/api/test', testRouter)

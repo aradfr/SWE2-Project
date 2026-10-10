@@ -18,6 +18,7 @@ tags:
   - name: health
   - name: services
   - name: tickets
+  - name: board
   - name: test-utils
 paths:
   /api/health:
@@ -85,6 +86,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/board:
+    get:
+      tags: [board]
+      summary: Get the latest called ticket per service and counter, and waiting counts
+      operationId: getBoardState
+      responses:
+        '200':
+          description: Current state for the display board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardState'
+  /api/board/events:
+    get:
+      tags: [board]
+      summary: Subscribe to live display-board events
+      operationId: subscribeToBoardEvents
+      responses:
+        '200':
+          description: >
+            Server-sent events. The initial board-state event contains a BoardState
+            JSON object. Subsequent events use the published event name, currently
+            ticket-called, and carry the JSON payload supplied by the publisher.
+          content:
+            text/event-stream:
+              schema:
+                type: string
   /api/test/reset:
     post:
       tags: [test-utils]
@@ -149,6 +177,36 @@ components:
           type: string
           enum: [waiting, called, served]
           example: waiting
+    LastCalledTicket:
+      type: object
+      required: [name, code, counterId, calledAt]
+      properties:
+        name:
+          type: string
+          description: Display name of the service type
+        code:
+          type: string
+          example: A001
+        counterId:
+          type: integer
+        calledAt:
+          type: string
+          description: Call time as stored by SQLite
+    BoardState:
+      type: object
+      required: [board, queueLengths]
+      properties:
+        board:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/LastCalledTicket'
+        queueLengths:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
     Error:
       type: object
       required: [error]

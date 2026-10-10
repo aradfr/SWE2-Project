@@ -110,6 +110,12 @@ export async function getQueueLengths() {
   return ticketDao.getQueueLengths(db, today())
 }
 
+// Return the latest called ticket for each service and counter.
+export async function getLastCalledTickets() {
+  const db = await getDatabase()
+  return ticketDao.getLastCalledTickets(db, today())
+}
+
 // Return all waiting tickets for a service in FIFO order.
 export async function getQueue(tag) {
   const db = await getDatabase()

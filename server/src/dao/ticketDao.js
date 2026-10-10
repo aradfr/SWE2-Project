@@ -7,8 +7,9 @@ export async function addTicket(db, serviceType, day, issuedAt = new Date().toIS
       'SELECT COALESCE(MAX(sequence_number), 0) + 1 AS number FROM tickets WHERE service_tag = ? AND queue_day = ?',
       [serviceType, day],
     )
-    // 3-digit number per service: A001 ... A999, then it restarts from A000
-    const code = `${serviceType}${String(sequence.number % 1000).padStart(3, '0')}`
+    // 3-digit number per service: A001 ... A999, then it restarts from A001.
+    // Codes can repeat in the same day: sequence_number stays the unique value.
+    const code = `${serviceType}${String(((sequence.number - 1) % 999) + 1).padStart(3, '0')}`
     const result = await db.run(
       `INSERT INTO tickets (code, service_tag, sequence_number, issued_at, status, queue_day)
        VALUES (?, ?, ?, ?, 'waiting', ?)`,

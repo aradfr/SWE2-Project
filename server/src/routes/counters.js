@@ -31,8 +31,15 @@ router.post('/:id/next', async (req, res) => {
     if (error instanceof CounterNotFoundError) {
       return res.status(404).json({ error: error.message })
     }
-    throw error // handled by the default error handler
+    throw error // handled by the error handler
   }
+})
+
+// Error handler for the counters routes.
+router.use((error, req, res, next) => {
+  if (res.headersSent) return next(error)
+  console.error(error)
+  res.status(500).json({ error: 'internal server error' })
 })
 
 export default router

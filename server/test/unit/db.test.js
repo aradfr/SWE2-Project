@@ -136,7 +136,7 @@ describe('database', () => {
     }
   })
 
-  it('restarts the ticket number from 000 after 999', async () => {
+  it('restarts the ticket number from 001 after 999', async () => {
     const databasePath = path.join(os.tmpdir(), `office-queue-wrap-${Date.now()}-${Math.random()}.db`)
     databasePaths.push(databasePath)
     const db = await openDatabase(databasePath)
@@ -148,7 +148,7 @@ describe('database', () => {
       )
       const codes = []
       for (let i = 0; i < 3; i++) codes.push((await ticketDao.addTicket(db, 'A', '2026-10-08')).code)
-      expect(codes).toEqual(['A999', 'A000', 'A001'])
+      expect(codes).toEqual(['A999', 'A001', 'A002'])
     } finally {
       await db.close()
     }

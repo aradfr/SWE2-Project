@@ -15,6 +15,7 @@ import {
   reset,
   close,
 } from '../../src/store.js'
+import { callNext } from '../../src/store.js'
 
 // Expected seed values are copied so tests also verify that callers cannot mutate storage.
 const seedServices = () => SERVICES.map((service) => ({ ...service }))
@@ -108,5 +109,26 @@ describe('store', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('store.callNext', () => {
+  beforeEach(async () => {
+    // Same starting state as the store tests: no tickets.
+    await reset()
+  })
+
+  afterAll(async () => {
+    await close()
+  })
+
+  // The store passes today's queues to the DAO and the called ticket leaves the queue.
+  it('calls the next ticket of today for the counter', async () => {
+    await addTicket({ serviceType: 'A' })
+
+    const ticket = await callNext(2, () => 'A')
+
+    expect(ticket).toMatchObject({ code: 'A001', status: 'called' })
+    expect(await getQueueLength('A')).toBe(0)
   })
 })

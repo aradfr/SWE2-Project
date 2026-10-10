@@ -64,6 +64,34 @@ export async function dequeue(db, tag, day, counterId = null) {
   })
 }
 
+// Read queue lengths, choose the queue and call its first ticket in ONE
+// transaction, so two counters calling at the same time see consistent lengths.
+// `choose` receives { tag: length } (waiting tickets only) and returns a tag or null.
+export async function callNext(db, day, counterId, choose) {
+  return transaction(db, async () => {
+    const rows = await db.all(
+      `SELECT service_tag AS tag, COUNT(*) AS length FROM tickets
+       WHERE queue_day = ? AND status = 'waiting' GROUP BY service_tag`,
+      [day],
+    )
+    const tag = choose(Object.fromEntries(rows.map(({ tag, length }) => [tag, length])))
+    if (tag === null) return null
+
+    const row = await db.get(
+      `SELECT id, code, service_tag AS serviceType, issued_at AS issuedAt, status
+       FROM tickets WHERE service_tag = ? AND queue_day = ? AND status = 'waiting' ORDER BY id LIMIT 1`,
+      [tag, day],
+    )
+    if (!row) return null
+    await db.run(
+      `UPDATE tickets SET status = 'called', counter_id = ?, called_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [counterId, row.id],
+    )
+    return ticketFromRow({ ...row, status: 'called' })
+  })
+}
+
 // Queue length queries only count current-day tickets that are still waiting.
 export async function getQueueLength(db, tag, day) {
   const row = await db.get(

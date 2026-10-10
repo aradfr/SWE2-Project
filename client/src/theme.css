@@ -86,6 +86,87 @@ body {
   box-shadow: 0 0.5rem 1rem rgba(6, 71, 137, 0.15) !important;
 }
 
+/* Customer service selection and issued-ticket receipt. */
+/* The grid remains touch-friendly while adapting to smaller screens. */
+.customer-service-grid {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+
+.customer-service-button {
+  position: relative;
+  min-height: 170px;
+  padding: 1.5rem;
+  border: 2px solid rgba(66, 122, 161, 0.35);
+  border-top: 5px solid #064789;
+  color: #17324d;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.customer-service-button:hover:not(:disabled),
+.customer-service-button:focus-visible {
+  border-color: #427aa1;
+  box-shadow: 0 0.5rem 1rem rgba(6, 71, 137, 0.15);
+  transform: translateY(-2px);
+}
+
+.customer-service-button:disabled {
+  opacity: 0.72;
+}
+
+.customer-service-tag,
+.customer-service-name,
+.customer-service-time {
+  display: block;
+}
+
+.customer-service-tag {
+  color: #064789;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.customer-service-name {
+  margin-top: 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.customer-service-time {
+  margin-top: 1rem;
+  color: #5d6d7e;
+  font-size: 0.9rem;
+}
+
+.customer-service-spinner {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.customer-feedback {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-direction: column;
+  text-align: center;
+}
+
+.ticket-card {
+  max-width: 480px;
+  border-top: 6px solid #064789;
+}
+
+.ticket-code {
+  color: #064789;
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 /* No lift animation for users who ask the OS to reduce motion */
 @media (prefers-reduced-motion: reduce) {
   .role-card {
@@ -93,6 +174,15 @@ body {
   }
 
   .role-card:hover {
+    transform: none;
+  }
+
+  .customer-service-button {
+    transition: none;
+  }
+
+  .customer-service-button:hover:not(:disabled),
+  .customer-service-button:focus-visible {
     transform: none;
   }
 }

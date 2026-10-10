@@ -48,6 +48,20 @@ export async function apiFetch(path, options = {}) {
   return response.json()
 }
 
+// Load the services currently offered by the office.
+export async function getServices() {
+  const data = await apiFetch('/services')
+  return data.services
+}
+
+// Issue a ticket for the selected service type.
+export function createTicket(serviceType) {
+  return apiFetch('/tickets', {
+    method: 'POST',
+    body: { serviceType },
+  })
+}
+
 // True for bodies to send as JSON: plain objects ({ ... }) and arrays.
 // FormData, Blob, URLSearchParams and strings are passed to fetch unchanged.
 function isJsonBody(value) {

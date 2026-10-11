@@ -118,6 +118,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/counters/{id}/current:
+    get:
+      tags: [counters]
+      summary: Get the ticket a counter is serving
+      description: Last ticket called today by the counter and not finished (e.g. to show it again after a page reload).
+      operationId: getCurrentTicket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Numeric counter id
+          schema:
+            type: integer
+            minimum: 1
+          example: 2
+      responses:
+        '200':
+          description: Ticket the counter is serving
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalledTicket'
+        '204':
+          description: No ticket in progress at this counter (none called today, or finished)
+        '400':
+          description: The counter id is not a positive integer (only digits, no leading zero)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown counter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/test/reset:
     post:
       tags: [test-utils]

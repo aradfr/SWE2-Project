@@ -70,10 +70,6 @@ export function callNextCustomer(counterId) {
  * @throws {ApiError} If the server answers with an error status.
  * @throws {Error} If the server cannot be reached.
  */
-export async function getCurrentTicket(counterId) {
-  // ---- TEMP: no API yet (current ticket of a counter) ----
-  // Replace with the call to the API when it exists.
-  void counterId
-  return null
-  // ---- END TEMP ----
+export function getCurrentTicket(counterId) {
+  return apiFetch(`/counters/${counterId}/current`)
 }

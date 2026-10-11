@@ -30,6 +30,7 @@ function CounterDesk({ counterId }) {
   const [counterServices, setCounterServices] = useState(null) // tags, null until loaded
   const [notFound, setNotFound] = useState(false)
   const [ticket, setTicket] = useState(null) // last called ticket
+  const [loadingCurrent, setLoadingCurrent] = useState(true) // waiting for getCurrentTicket
   const [calling, setCalling] = useState(false)
   const [message, setMessage] = useState(null) // null | 'empty' | 'error'
 
@@ -63,6 +64,9 @@ function CounterDesk({ counterId }) {
         if (active && current) setTicket((latest) => latest ?? current)
       })
       .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingCurrent(false)
+      })
     return () => {
       active = false
     }
@@ -107,6 +111,11 @@ function CounterDesk({ counterId }) {
                   <p className="display-1 fw-bold mb-0" data-testid="ticket-code">{ticket.code}</p>
                   <p className="fs-3 mb-0" data-testid="ticket-service">{nameOf(ticket.serviceType)}</p>
                 </>
+              ) : loadingCurrent ? (
+                // Until the server answers, "No customer yet" could be false
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </Spinner>
               ) : (
                 <p className="fs-3 mb-0">No customer yet</p>
               )}

@@ -106,7 +106,8 @@ export async function getBoardData(db, day) {
        GROUP BY service_tag
      )
      SELECT s.tag, s.name, t.code, t.counter_id AS counterId,
-       t.called_at AS calledAt, COALESCE(queue_counts.length, 0) AS queueLength
+       strftime('%Y-%m-%dT%H:%M:%SZ', t.called_at) AS calledAt, 
+       COALESCE(queue_counts.length, 0) AS queueLength
      FROM services s
      LEFT JOIN queue_counts ON queue_counts.service_tag = s.tag
      LEFT JOIN tickets t ON t.service_tag = s.tag

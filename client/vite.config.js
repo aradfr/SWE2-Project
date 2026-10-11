@@ -3,6 +3,10 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: './test/setup.js',
+  },
   server: {
     // Forward API calls to the Express server
     proxy: { '/api': 'http://localhost:3001' },

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Alert, Card, Col, Row, Spinner } from 'react-bootstrap'
+import PageLayout from '../../components/PageLayout.jsx'
 import { getBoard, subscribeToBoardEvents } from '../../api/client.js'
 
 const REFRESH_INTERVAL = 5000
@@ -46,54 +48,55 @@ function BoardPage() {
   }, [])
 
   return (
-    <main className="board-screen">
-      <header className="board-header">
-        <div>
-          <h1 className="board-title">Office queue</h1>
-          <p className="board-subtitle">Now serving by service type</p>
-        </div>
-      </header>
-
-      {error && board && <p className="board-message error" role="alert">{error}</p>}
+    <PageLayout title="Display board" subtitle="Now serving by service type">
+      {error && board && <Alert variant="warning" role="alert">{error}</Alert>}
 
       {!board ? (
-        <p className={`board-message ${error ? 'error' : ''}`} role={error ? 'alert' : 'status'}>
-          {error || 'Loading board…'}
-        </p>
+        error ? (
+          <Alert variant="danger" role="alert">{error}</Alert>
+        ) : (
+          <div className="customer-feedback" role="status">
+            <Spinner animation="border" variant="primary" />
+            <span>Loading board…</span>
+          </div>
+        )
       ) : (
-        <section className="board-services" aria-label="Services">
+        <section className="d-grid gap-3" aria-label="Services">
           {Object.entries(board).map(([tag, service]) => (
-            <article key={tag} className="board-service">
-              <div className="board-service-name">
-                <span className="board-service-tag">{tag}</span>
-                <div>
-                  <h2>{service.name}</h2>
-                  <small>Service</small>
-                </div>
-              </div>
+            <Card as="article" key={tag} className="board-service shadow-sm">
+              <Card.Body className="p-4">
+                <Row className="align-items-center g-3">
+                  <Col md={3}>
+                    <span className="customer-service-tag">{tag}</span>
+                    <h2 className="customer-service-name h4 mb-0">{service.name}</h2>
+                  </Col>
 
-              <div className="board-calls">
-                {service.lastCalledTickets.length ? (
-                  service.lastCalledTickets.map((call) => (
-                    <div key={`${tag}-${call.counterId}`} className="board-call">
-                      <span>Counter {call.counterId}</span>
-                      <strong>{call.code}</strong>
-                    </div>
-                  ))
-                ) : (
-                  <p>No ticket called yet</p>
-                )}
-              </div>
+                  <Col md={6}>
+                    {service.lastCalledTickets.length ? (
+                      <div className="d-flex flex-wrap gap-4">
+                        {service.lastCalledTickets.map((call) => (
+                          <div key={`${tag}-${call.counterId}`} className="board-call">
+                            <span className="text-uppercase small fw-semibold text-secondary">Counter {call.counterId}</span>
+                            <strong className="board-call-code">{call.code}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-secondary fs-5 mb-0">No ticket called yet</p>
+                    )}
+                  </Col>
 
-              <div className="board-queue">
-                <span>Waiting queue</span>
-                <strong>{service.queueLength}</strong>
-              </div>
-            </article>
+                  <Col md={3} className="text-md-end">
+                    <span className="text-uppercase small fw-semibold text-secondary d-block">Waiting</span>
+                    <strong className="board-queue-length">{service.queueLength}</strong>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
           ))}
         </section>
       )}
-    </main>
+    </PageLayout>
   )
 }
 

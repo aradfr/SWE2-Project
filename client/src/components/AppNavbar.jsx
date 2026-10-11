@@ -1,7 +1,7 @@
 import { Container, Nav, Navbar } from 'react-bootstrap'
 import { Link, NavLink } from 'react-router-dom'
 
-// Top navigation bar, shown on every page except the full-screen board.
+// Top navigation bar, shown on every page.
 // NavLink adds the "active" class to the link of the current page.
 function AppNavbar() {
   return (

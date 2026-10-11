@@ -2,7 +2,7 @@
  * Team palette. Pages must not hard-code colours: use Bootstrap variants
  * (primary, warning, danger…).
  *
- *   #064789  header / navbar (and full-screen board)
+ *   #064789  header / navbar
  *   #427AA1  primary: buttons and selection
  *   #EBF2FA  page background
  *
@@ -64,146 +64,29 @@ body {
   background-color: #064789;
 }
 
-/* Full-screen display board (pages/board/BoardPage.jsx) */
-.board-screen {
-  background-color: #064789;
-  color: #fff;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem;
-}
-
-.board-header,
-.board-service,
-.board-service-name,
-.board-calls,
-.board-call,
-.board-queue {
-  display: flex;
-}
-
-.board-header,
+/* Display board (pages/board/BoardPage.jsx)
 .board-service {
-  align-items: center;
-}
-
-.board-header {
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.board-title,
-.board-subtitle,
-.board-service-name h2,
-.board-service-name small,
-.board-call span,
-.board-calls p,
-.board-queue span {
-  margin: 0;
-}
-
-.board-title {
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 700;
-}
-
-.board-subtitle {
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.board-service-tag {
-  border-radius: 0.375rem;
-  padding: 0.35rem 0.65rem;
-  background-color: var(--bs-primary);
-  color: #fff;
-  font-weight: 600;
-  font-size: 1.5rem;
-}
-
-.board-message {
-  margin-bottom: 1rem;
-  color: #fff;
-}
-
-.board-message.error {
-  color: var(--bs-warning);
-}
-
-.board-services {
-  display: grid;
-  gap: 1rem;
-}
-
-.board-service {
-  display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(0, 2fr) minmax(9rem, 1fr);
-  gap: 1rem;
-  border: 1px solid rgba(var(--bs-primary-rgb), 0.35);
-  border-radius: 0.375rem;
-  padding: 1.25rem;
-  background-color: #fff;
-  color: var(--bs-body-color);
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.15);
-}
-
-.board-service-name {
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.board-service-name h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.board-service-name small,
-.board-call span,
-.board-calls p,
-.board-queue span {
-  color: var(--bs-secondary-color);
-}
-
-.board-calls {
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+  border-top: 5px solid #064789;
 }
 
 .board-call {
+  display: flex;
   flex-direction: column;
 }
 
-.board-call strong {
-  font-size: 2rem;
+.board-call-code {
+  color: #064789;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
 }
 
-.board-calls p {
-  font-size: 1.25rem;
-}
-
-.board-queue {
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.board-queue strong {
+.board-queue-length {
+  color: #17324d;
   font-size: 2.5rem;
-}
-
-@media (max-width: 767.98px) {
-  .board-screen {
-    padding: 1rem;
-  }
-
-  .board-service {
-    grid-template-columns: 1fr;
-  }
-
-  .board-queue {
-    align-items: flex-start;
-  }
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 /* Cards: light primary-coloured border */

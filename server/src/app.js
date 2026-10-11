@@ -1,6 +1,7 @@
 import express from 'express'
 import servicesRouter from './routes/services.js'
 import ticketsRouter from './routes/tickets.js'
+import countersRouter from './routes/counters.js'
 import testRouter from './routes/test.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { apiNotFound } from './middleware/notFound.js'
@@ -8,13 +9,13 @@ import { apiNotFound } from './middleware/notFound.js'
 const app = express()
 app.use(express.json())
 
-// Health check: used to verify that the server is running
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
 app.use('/api/services', servicesRouter)
 app.use('/api/tickets', ticketsRouter)
+app.use('/api/counters', countersRouter)
 app.use('/api/test', testRouter)
 
 // Any other /api request: JSON 404 instead of Express's HTML page

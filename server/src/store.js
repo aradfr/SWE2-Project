@@ -90,6 +90,19 @@ export async function dequeue(tag, counterId = null) {
   return ticketDao.dequeue(db, tag, today(), counterId)
 }
 
+// Call the next ticket for a counter in one transaction.
+// `choose` receives { tag: length } and returns a tag or null.
+export async function callNext(counterId, choose) {
+  const db = await getDatabase()
+  return ticketDao.callNext(db, today(), counterId, choose)
+}
+
+// Return the ticket the counter is serving today, or null.
+export async function getCurrentTicket(counterId) {
+  const db = await getDatabase()
+  return ticketDao.getCurrentTicket(db, today(), counterId)
+}
+
 // Inspect the first waiting ticket without removing it.
 export async function peek(tag) {
   const db = await getDatabase()

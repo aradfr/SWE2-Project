@@ -1,6 +1,6 @@
 /* Next customer service: business logic of the "Next customer" story. */
 
-import { getCounter, getServices, callNext } from '../store.js'
+import { getCounter, getServices, callNext, getCurrentTicket } from '../store.js'
 
 // Thrown when a counter id does not match any counter.
 export class CounterNotFoundError extends Error {
@@ -53,5 +53,19 @@ export async function callNextCustomer(counterId) {
   const ticket = await callNext(counter.id, (lengths) =>
     selectQueue(buildCandidates(counter.services, services, lengths)))
 
+  return ticket === null ? null : { ...ticket, counterId: counter.id }
+}
+
+/**
+ * Ticket the counter is serving: the last one it called today, not finished.
+ * @param {number} counterId
+ * @returns {Promise<object | null>} The ticket with its counterId, or null if none.
+ * @throws {CounterNotFoundError} If the counter does not exist.
+ */
+export async function getCurrentCustomer(counterId) {
+  const counter = await getCounter(counterId)
+  if (counter === null) throw new CounterNotFoundError(counterId)
+
+  const ticket = await getCurrentTicket(counter.id)
   return ticket === null ? null : { ...ticket, counterId: counter.id }
 }

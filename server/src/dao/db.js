@@ -32,11 +32,19 @@ export async function openDatabase(databasePath = process.env.SQLITE_DB_PATH || 
     })
   })
 
-  // Enforce all foreign-key relationships declared in schema.sql.
-  await run(database, 'PRAGMA foreign_keys = ON')
-  // Let a concurrent writer wait briefly for the current transaction to finish.
-  await run(database, 'PRAGMA busy_timeout = 5000')
-  await exec(database, schema)
+  // If the setup fails, close the connection before rethrowing,
+  // so a failed open does not leave the database file open.
+  try {
+    // Enforce all foreign-key relationships declared in schema.sql.
+    await run(database, 'PRAGMA foreign_keys = ON')
+    // Let a concurrent writer wait briefly for the current transaction to finish.
+    await run(database, 'PRAGMA busy_timeout = 5000')
+    await exec(database, schema)
+    await migrate(database)
+  } catch (error) {
+    await closeDatabase(database).catch(() => {}) // report the setup error, not a close error
+    throw error
+  }
 
   return {
     connection: database,
@@ -45,6 +53,23 @@ export async function openDatabase(databasePath = process.env.SQLITE_DB_PATH || 
     all: (sql, parameters) => callbackOperation(database, 'all', sql, parameters),
     exec: (sql) => exec(database, sql),
     close: () => closeDatabase(database),
+  }
+}
+
+// Update databases created before a schema change: CREATE TABLE IF NOT EXISTS
+// does not add new columns to an existing table. Runs at every open and does
+// nothing when the database is already up to date. Exported for tests.
+export async function migrate(database) {
+  const columns = await callbackOperation(database, 'all', 'PRAGMA table_info(counters)')
+  if (columns.some((column) => column.name === 'current_ticket_id')) return
+  try {
+    await run(
+      database,
+      'ALTER TABLE counters ADD COLUMN current_ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL',
+    )
+  } catch (error) {
+    // Another connection opened at the same time may have added it first.
+    if (!/duplicate column name/i.test(error.message)) throw error
   }
 }
 

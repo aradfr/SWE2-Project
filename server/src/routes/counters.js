@@ -1,10 +1,11 @@
 /* Counters API.
 GET  /api/counters          list of counters and their services
-POST /api/counters/:id/next an officer calls the next customer to their counter */
+POST /api/counters/:id/next an officer calls the next customer to their counter
+GET  /api/counters/:id/current the ticket the counter is serving (e.g. after a page reload) */
 
 import { Router } from 'express'
 import { listCounters } from '../services/counterService.js'
-import { callNextCustomer, CounterNotFoundError } from '../services/nextCustomerService.js'
+import { callNextCustomer, getCurrentCustomer, CounterNotFoundError } from '../services/nextCustomerService.js'
 
 const router = Router()
 
@@ -26,6 +27,24 @@ router.post('/:id/next', async (req, res) => {
   try {
     const ticket = await callNextCustomer(counterId)
     if (ticket === null) return res.status(204).end() // nobody is waiting
+    return res.json(ticket)
+  } catch (error) {
+    if (error instanceof CounterNotFoundError) {
+      return res.status(404).json({ error: error.message })
+    }
+    throw error // handled by the error handler
+  }
+})
+
+router.get('/:id/current', async (req, res) => {
+  if (!COUNTER_ID.test(req.params.id)) {
+    return res.status(400).json({ error: 'counter id must be a positive integer' })
+  }
+  const counterId = Number(req.params.id)
+
+  try {
+    const ticket = await getCurrentCustomer(counterId)
+    if (ticket === null) return res.status(204).end() // no ticket in progress
     return res.json(ticket)
   } catch (error) {
     if (error instanceof CounterNotFoundError) {

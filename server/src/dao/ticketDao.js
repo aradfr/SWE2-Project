@@ -89,8 +89,22 @@ export async function callNext(db, day, counterId, choose) {
        WHERE id = ?`,
       [counterId, row.id],
     )
+    // The called ticket becomes the one the counter is serving.
+    await db.run('UPDATE counters SET current_ticket_id = ? WHERE id = ?', [row.id, counterId])
     return ticketFromRow({ ...row, status: 'called' })
   })
+}
+
+// Ticket the counter is serving: the last one it called, if it is from `day`
+// and still called (not finished). Same shape as callNext, or null.
+export async function getCurrentTicket(db, day, counterId) {
+  const row = await db.get(
+    `SELECT t.id, t.code, t.service_tag AS serviceType, t.issued_at AS issuedAt, t.status
+     FROM counters c JOIN tickets t ON t.id = c.current_ticket_id
+     WHERE c.id = ? AND t.queue_day = ? AND t.status = 'called'`,
+    [counterId, day],
+  )
+  return ticketFromRow(row)
 }
 
 // Queue length queries only count current-day tickets that are still waiting.

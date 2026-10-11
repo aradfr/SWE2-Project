@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getCounter, getServices, callNext } from '../../src/store.js'
+import { getCounter, getServices, callNext, getCurrentTicket } from '../../src/store.js'
 import {
   CounterNotFoundError,
   selectQueue,
   buildCandidates,
   callNextCustomer,
+  getCurrentCustomer,
 } from '../../src/services/nextCustomerService.js'
 
 // The store is replaced by mocks, so no database is opened.
@@ -12,6 +13,7 @@ vi.mock('../../src/store.js', () => ({
   getCounter: vi.fn(),
   getServices: vi.fn(),
   callNext: vi.fn(),
+  getCurrentTicket: vi.fn(),
 }))
 
 // Seed services: A Payments 3 min, B Banking 5 min, C Shipping 10 min.
@@ -236,5 +238,44 @@ describe('callNextCustomer', () => {
     const choose = await captureChoose()
 
     expect(choose({ B: 1 })).toBe('B')
+  })
+})
+
+describe('getCurrentCustomer', () => {
+  beforeEach(() => {
+    // Default store: counter 2 of the seed (A, B), no ticket in progress.
+    vi.resetAllMocks()
+    getCounter.mockImplementation(async (id) => (id === 2 ? { id: 2, services: ['A', 'B'] } : null))
+    getCurrentTicket.mockResolvedValue(null)
+  })
+
+  // SC1: an unknown counter is an error, and the store is not asked for its ticket.
+  it('throws CounterNotFoundError for an unknown counter', async () => {
+    const error = await getCurrentCustomer(99).catch((err) => err)
+
+    expect(error).toBeInstanceOf(CounterNotFoundError)
+    expect(error.id).toBe(99)
+    expect(getCurrentTicket).not.toHaveBeenCalled()
+  })
+
+  // SC2: a counter with no ticket in progress gives null.
+  it('returns null when the counter has no ticket in progress', async () => {
+    expect(await getCurrentCustomer(2)).toBeNull()
+    expect(getCurrentTicket).toHaveBeenCalledWith(2)
+  })
+
+  // SC3: the ticket in progress is returned with the counter id, like callNextCustomer.
+  it('returns the ticket in progress with the counter id', async () => {
+    getCurrentTicket.mockResolvedValue(fakeTicket('B'))
+
+    expect(await getCurrentCustomer(2)).toEqual({ ...fakeTicket('B'), counterId: 2 })
+  })
+
+  // SC4: a store failure must reach the caller, not be hidden as "no ticket in progress".
+  it('propagates a store error instead of returning null', async () => {
+    const storeError = new Error('DB down')
+    getCurrentTicket.mockRejectedValue(storeError)
+
+    await expect(getCurrentCustomer(2)).rejects.toBe(storeError)
   })
 })

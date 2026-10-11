@@ -76,8 +76,11 @@ function BoardPage() {
                       <div className="d-flex flex-wrap gap-4">
                         {service.lastCalledTickets.map((call) => (
                           <div key={`${tag}-${call.counterId}`} className="board-call">
-                            <span className="text-uppercase small fw-semibold text-secondary">Counter {call.counterId}</span>
-                            <strong className="board-call-code">{call.code}</strong>
+                            <div className="d-flex flex-wrap align-items-baseline gap-3">
+                              <strong className="board-call-code">{call.code}</strong>
+                              <span aria-hidden="true" className="fs-2 text-primary">→</span>
+                              <strong className="board-call-code text-body">Counter {call.counterId}</strong>
+                            </div>
                           </div>
                         ))}
                       </div>

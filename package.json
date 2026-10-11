@@ -12,5 +12,8 @@
     "dev:client": "npm run dev --workspace client",
     "test": "npm test --workspace server && npm test --workspace client",
     "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
   }
 }

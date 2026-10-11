@@ -111,13 +111,12 @@ export async function getBoardData(db, day) {
      LEFT JOIN queue_counts ON queue_counts.service_tag = s.tag
      LEFT JOIN tickets t ON t.service_tag = s.tag
        AND t.queue_day = ? AND t.status = 'called'
-       -- Exclude older calls for the same service and counter.
+       -- A counter can serve multiple services; keep only its newest call overall.
        AND NOT EXISTS (
          SELECT 1 FROM tickets newer
-         WHERE newer.service_tag = t.service_tag
-           AND newer.queue_day = t.queue_day
+         WHERE newer.queue_day = t.queue_day
            AND newer.status = 'called'
-           AND newer.counter_id IS t.counter_id
+           AND newer.counter_id = t.counter_id
            AND newer.id > t.id
        )
      ORDER BY s.rowid, t.counter_id, t.id DESC`,

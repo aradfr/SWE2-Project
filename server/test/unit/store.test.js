@@ -99,6 +99,23 @@ describe('store', () => {
     })
   })
 
+  it('shows only the latest call across all services at each counter', async () => {
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'B' })
+    await addTicket({ serviceType: 'A' })
+    await dequeue('A', 1)
+    await dequeue('A', 2)
+    await dequeue('B', 1)
+
+    const board = await getBoardData()
+    expect(board.A.lastCalledTickets).toEqual([
+      { code: 'A002', counterId: 2, calledAt: expect.any(String) },
+    ])
+    expect(board.B.lastCalledTickets).toEqual([
+      { code: 'B001', counterId: 1, calledAt: expect.any(String) },
+    ])
+  })
+
   it('returns copies and null for empty queues', async () => {
     await addTicket({ serviceType: 'A' })
     const first = await peek('A')

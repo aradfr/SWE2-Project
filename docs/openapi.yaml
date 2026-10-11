@@ -108,9 +108,10 @@ paths:
       responses:
         '200':
           description: >
-            Server-sent events. The initial board-state event contains a BoardState
-            JSON object. Subsequent events use the published event name, currently
-            ticket-called, and carry the JSON payload supplied by the publisher.
+            Server-sent events. Every event is named board-state and its data is
+            the full BoardState JSON object: one when the client connects, then one
+            after every new ticket (POST /api/tickets) and every called ticket
+            (POST /api/counters/{id}/next). Lines starting with ':' are keep-alive comments.
           content:
             text/event-stream:
               schema:
@@ -282,7 +283,9 @@ components:
           type: integer
         calledAt:
           type: string
-          description: Call time as stored by SQLite
+          format: date-time
+          description: Call time in UTC, ISO 8601
+          example: '2026-10-11T09:30:00Z'
     BoardState:
       type: object
       description: Board data indexed by the service tag

@@ -11,7 +11,9 @@ function CounterSelect() {
 
   useEffect(() => {
     let active = true
-    Promise.all([getCounters(), getServices()])
+    // Service names are extra information: without them the cards show the tags.
+    // Only a failure of getCounters() is an error.
+    Promise.all([getCounters(), getServices().catch(() => [])])
       .then(([counters, services]) => {
         if (!active) return
         const names = Object.fromEntries(services.map((service) => [service.tag, service.name]))

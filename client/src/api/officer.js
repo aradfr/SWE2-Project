@@ -5,8 +5,10 @@ import { apiFetch } from './client.js'
 export { ApiError } from './client.js'
 
 // ---- TEMP MOCK (OQM-21): remove when GET /api/services is in this branch ----
-// Set MOCK_SERVICES to false, check the page, then delete all the TEMP MOCK blocks.
-const MOCK_SERVICES = true
+// Off by default: the real API is used. The mock is used only in development,
+// with VITE_MOCK_SERVICES=true in client/.env.local. When GET /api/services is
+// in this branch, delete all the TEMP MOCK blocks.
+const MOCK_SERVICES = import.meta.env.DEV && import.meta.env.VITE_MOCK_SERVICES === 'true'
 
 // Service types of the server seed (server/src/seed.js).
 const MOCK_SERVICE_LIST = [

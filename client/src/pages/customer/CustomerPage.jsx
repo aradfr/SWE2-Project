@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Card, Col, Row, Spinner } from 'react-bootstrap'
 import PageLayout from '../../components/PageLayout.jsx'
-import { createTicket, getServices } from '../../api/client.js'
+import { createTicket, getServices } from '../../api/customer.js'
 
 function CustomerPage() {
   // The page has one state for each step of the customer ticket flow.

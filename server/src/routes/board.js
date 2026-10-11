@@ -12,15 +12,27 @@ router.get('/', async (req, res) => {
 
 router.get('/events', async (req, res) => {
   let ready = false
-  const pendingEvents = []
+  let pendingEvents = 0
+  let updates = Promise.resolve()
   let heartbeat
+  const refreshBoard = () => {
+    updates = updates.then(async () => {
+      if (res.writableEnded || res.destroyed) return
+      writeBoardEvent(res, 'board-state', await getBoardState())
+    }).catch((error) => {
+      cleanup()
+      console.error(error)
+      if (!res.destroyed) res.end()
+    })
+  }
+
   // Subscribe before loading the snapshot so events during the read are buffered.
-  const unsubscribe = subscribeToBoardEvents((eventName, data) => {
+  const unsubscribe = subscribeToBoardEvents(() => {
     if (!ready) {
-      pendingEvents.push({ eventName, data })
+      pendingEvents += 1
       return
     }
-    writeBoardEvent(res, eventName, data)
+    refreshBoard()
   })
 
   const cleanup = () => {
@@ -43,16 +55,19 @@ router.get('/events', async (req, res) => {
     writeBoardEvent(res, 'board-state', boardState)
     ready = true
 
-    // Replay changes that arrived while the initial database snapshot was loading.
-    for (const { eventName, data } of pendingEvents) {
-      writeBoardEvent(res, eventName, data)
+    // Refresh snapshots for events received while the initial state was loading.
+    while (pendingEvents > 0) {
+      pendingEvents -= 1
+      refreshBoard()
     }
     heartbeat = setInterval(() => {
       if (!res.destroyed) res.write(': keep-alive\n\n')
     }, 20000)
   } catch (error) {
     cleanup()
-    throw error
+    if (!res.headersSent) throw error  
+    console.error(error)  
+    res.end()  
   }
 })
 

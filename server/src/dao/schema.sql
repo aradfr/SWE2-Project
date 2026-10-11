@@ -9,8 +9,11 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 -- Physical counters and their many-to-many service assignments.
+-- Ticket currently served by the counter, NULL if none.
+-- Deleting the ticket resets it (reset() deletes all tickets).
 CREATE TABLE IF NOT EXISTS counters (
-  id INTEGER PRIMARY KEY
+  id INTEGER PRIMARY KEY,
+  current_ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS counter_services (

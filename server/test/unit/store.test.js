@@ -16,6 +16,7 @@ import {
   reset,
   close,
 } from '../../src/store.js'
+import { callNext } from '../../src/store.js'
 
 // Expected seed values are copied so tests also verify that callers cannot mutate storage.
 const seedServices = () => SERVICES.map((service) => ({ ...service }))
@@ -90,13 +91,26 @@ describe('store', () => {
         name: 'Payments',
         queueLength: 1,
         lastCalledTickets: [
-          { code: 'A001', counterId: 1, calledAt: expect.any(String) },
-          { code: 'A002', counterId: 2, calledAt: expect.any(String) },
+          { code: 'A001', counterId: 1, calledAt: expect.stringMatching(/Z$/) },
+          { code: 'A002', counterId: 2, calledAt: expect.stringMatching(/Z$/) },
         ],
       },
       B: { name: 'Banking', queueLength: 1, lastCalledTickets: [] },
       C: { name: 'Shipping', queueLength: 0, lastCalledTickets: [] },
     })
+  })
+
+  it('shows the last call of a counter even if that ticket was issued earlier', async () => {
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'B' })
+    await dequeue('B', 2)
+    await dequeue('A', 2)
+
+    const board = await getBoardData()
+    expect(board.A.lastCalledTickets).toEqual([
+      { code: 'A001', counterId: 2, calledAt: expect.stringMatching(/Z$/) },
+    ])
+    expect(board.B.lastCalledTickets).toEqual([])
   })
 
   it('returns copies and null for empty queues', async () => {
@@ -131,5 +145,54 @@ describe('store', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('formats calledAt as UTC', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 9, 10, 12))
+      await reset()
+      await addTicket({ serviceType: 'A' })
+      await dequeue('A', 1)
+      expect((await getBoardData()).A.lastCalledTickets[0].calledAt).toMatch(/Z$/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not show a ticket called yesterday', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 9, 10, 12))
+      await reset()
+      await addTicket({ serviceType: 'A' })
+      await dequeue('A', 1)
+
+      vi.setSystemTime(new Date(2026, 9, 11, 12))
+      expect((await getBoardData()).A.lastCalledTickets).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('store.callNext', () => {
+  beforeEach(async () => {
+    // Same starting state as the store tests: no tickets.
+    await reset()
+  })
+
+  afterAll(async () => {
+    await close()
+  })
+
+  // The store passes today's queues to the DAO and the called ticket leaves the queue.
+  it('calls the next ticket of today for the counter', async () => {
+    await addTicket({ serviceType: 'A' })
+
+    const ticket = await callNext(2, () => 'A')
+
+    expect(ticket).toMatchObject({ code: 'A001', status: 'called' })
+    expect(await getQueueLength('A')).toBe(0)
   })
 })

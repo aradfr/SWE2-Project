@@ -5,12 +5,14 @@
 import { Router } from 'express'
 import { validateNewTicket } from '../validation.js'
 import { createTicket } from '../services/ticketService.js'
+import { publishBoardEvent, BOARD_EVENTS } from '../events.js'
 
 const router = Router()
 
 router.post('/', async (req, res) => {
   const serviceType = validateNewTicket(req.body) // 400 if malformed
   const ticket = await createTicket(serviceType) // 404 if unknown service
+  publishBoardEvent(BOARD_EVENTS.TICKET_ISSUED, ticket)
   res.status(201).json(ticket)
 })
 

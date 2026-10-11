@@ -61,6 +61,9 @@ export async function dequeue(db, tag, day, counterId = null) {
        WHERE id = ?`,
       [counterId, row.id],
     )
+    if (counterId !== null) {
+      await db.run('UPDATE counters SET current_ticket_id = ? WHERE id = ?', [row.id, counterId])
+    }
     return ticketFromRow({ ...row, status: 'called' })
   })
 }
@@ -127,6 +130,41 @@ export async function getQueueLengths(db, day) {
     [day],
   )
   return Object.fromEntries(rows.map(({ tag, length }) => [tag, length]))
+}
+
+// Return board state keyed by service tag, keeping each service's data together.
+export async function getBoardData(db, day) {
+  const rows = await db.all(
+    `WITH queue_counts AS (
+       SELECT service_tag, COUNT(*) AS length
+       FROM tickets
+       WHERE queue_day = ? AND status = 'waiting'
+       GROUP BY service_tag
+     )
+     SELECT s.tag, s.name, t.code, t.counter_id AS counterId,
+       strftime('%Y-%m-%dT%H:%M:%SZ', t.called_at) AS calledAt, 
+       COALESCE(queue_counts.length, 0) AS queueLength
+     FROM services s
+     LEFT JOIN queue_counts ON queue_counts.service_tag = s.tag
+     -- Last call of each counter: the ticket it is serving now (counters.current_ticket_id).
+     LEFT JOIN (
+       SELECT t.* FROM counters c JOIN tickets t ON t.id = c.current_ticket_id
+       WHERE t.queue_day = ? AND t.status = 'called'
+     ) t ON t.service_tag = s.tag
+     ORDER BY s.rowid, t.counter_id, t.id DESC`,
+    [day, day],
+  )
+
+  const board = new Map()
+  for (const { tag, name, code, counterId, calledAt, queueLength } of rows) {
+    if (!board.has(tag)) {
+      board.set(tag, { name, queueLength, lastCalledTickets: [] })
+    }
+    if (code !== null) {
+      board.get(tag).lastCalledTickets.push({ code, counterId, calledAt })
+    }
+  }
+  return Object.fromEntries(board)
 }
 
 // Return current-day waiting tickets in FIFO order for one service.

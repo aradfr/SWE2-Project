@@ -6,6 +6,7 @@ GET  /api/counters/:id/current the ticket the counter is serving (e.g. after a p
 import { Router } from 'express'
 import { listCounters } from '../services/counterService.js'
 import { callNextCustomer, getCurrentCustomer, CounterNotFoundError } from '../services/nextCustomerService.js'
+import { publishBoardEvent, BOARD_EVENTS } from '../events.js'
 
 const router = Router()
 
@@ -27,6 +28,7 @@ router.post('/:id/next', async (req, res) => {
   try {
     const ticket = await callNextCustomer(counterId)
     if (ticket === null) return res.status(204).end() // nobody is waiting
+    publishBoardEvent(BOARD_EVENTS.TICKET_CALLED, ticket)
     return res.json(ticket)
   } catch (error) {
     if (error instanceof CounterNotFoundError) {

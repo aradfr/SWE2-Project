@@ -11,6 +11,7 @@ import {
   peek,
   getQueueLength,
   getQueueLengths,
+  getBoardData,
   getQueue,
   reset,
   close,
@@ -77,6 +78,41 @@ describe('store', () => {
     expect(await getQueueLength('B')).toBe(1)
   })
 
+  it('returns board state grouped by service tag', async () => {
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'B' })
+    await dequeue('A', 1)
+    await dequeue('A', 2)
+
+    expect(await getBoardData()).toEqual({
+      A: {
+        name: 'Payments',
+        queueLength: 1,
+        lastCalledTickets: [
+          { code: 'A001', counterId: 1, calledAt: expect.stringMatching(/Z$/) },
+          { code: 'A002', counterId: 2, calledAt: expect.stringMatching(/Z$/) },
+        ],
+      },
+      B: { name: 'Banking', queueLength: 1, lastCalledTickets: [] },
+      C: { name: 'Shipping', queueLength: 0, lastCalledTickets: [] },
+    })
+  })
+
+  it('shows the last call of a counter even if that ticket was issued earlier', async () => {
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'B' })
+    await dequeue('B', 2)
+    await dequeue('A', 2)
+
+    const board = await getBoardData()
+    expect(board.A.lastCalledTickets).toEqual([
+      { code: 'A001', counterId: 2, calledAt: expect.stringMatching(/Z$/) },
+    ])
+    expect(board.B.lastCalledTickets).toEqual([])
+  })
+
   it('returns copies and null for empty queues', async () => {
     await addTicket({ serviceType: 'A' })
     const first = await peek('A')
@@ -106,6 +142,34 @@ describe('store', () => {
       vi.setSystemTime(new Date(2026, 9, 8, 0, 30))
       expect(await getQueueLength('A')).toBe(0)
       expect(await getQueue('A')).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('formats calledAt as UTC', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 9, 10, 12))
+      await reset()
+      await addTicket({ serviceType: 'A' })
+      await dequeue('A', 1)
+      expect((await getBoardData()).A.lastCalledTickets[0].calledAt).toMatch(/Z$/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not show a ticket called yesterday', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 9, 10, 12))
+      await reset()
+      await addTicket({ serviceType: 'A' })
+      await dequeue('A', 1)
+
+      vi.setSystemTime(new Date(2026, 9, 11, 12))
+      expect((await getBoardData()).A.lastCalledTickets).toEqual([])
     } finally {
       vi.useRealTimers()
     }

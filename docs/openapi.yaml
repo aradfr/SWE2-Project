@@ -18,6 +18,7 @@ tags:
   - name: health
   - name: services
   - name: tickets
+  - name: board
   - name: counters
   - name: test-utils
 paths:
@@ -86,6 +87,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /api/board:
+    get:
+      tags: [board]
+      summary: Get board state grouped by service tag
+      operationId: getBoardState
+      responses:
+        '200':
+          description: Current state for the display board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardState'
+  /api/board/events:
+    get:
+      tags: [board]
+      summary: Subscribe to live display-board events
+      operationId: subscribeToBoardEvents
+      responses:
+        '200':
+          description: >
+            Server-sent events. Every event is named board-state and its data is
+            the full BoardState JSON object: one when the client connects, then one
+            after every new ticket (POST /api/tickets) and every called ticket
+            (POST /api/counters/{id}/next). Lines starting with ':' are keep-alive comments.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
   /api/counters:
     get:
       tags: [counters]
@@ -240,6 +271,38 @@ components:
           type: string
           enum: [waiting, called, served]
           example: waiting
+
+    LastCalledTicket:
+      type: object
+      required: [code, counterId, calledAt]
+      properties:
+        code:
+          type: string
+          example: A001
+        counterId:
+          type: integer
+        calledAt:
+          type: string
+          format: date-time
+          description: Call time in UTC, ISO 8601
+          example: '2026-10-11T09:30:00Z'
+    BoardState:
+      type: object
+      description: Board data indexed by the service tag
+      additionalProperties:
+        type: object
+        required: [name, queueLength, lastCalledTickets]
+        properties:
+          name:
+            type: string
+            description: Display name of the service type
+          queueLength:
+            type: integer
+            minimum: 0
+          lastCalledTickets:
+            type: array
+            items:
+              $ref: '#/components/schemas/LastCalledTicket'
     Counter:
       type: object
       required: [id, services]

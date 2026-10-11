@@ -123,6 +123,12 @@ export async function getQueueLengths() {
   return ticketDao.getQueueLengths(db, today())
 }
 
+// Return the board's service metadata, latest calls and queue lengths.
+export async function getBoardData() {
+  const db = await getDatabase()
+  return ticketDao.getBoardData(db, today())
+}
+
 // Return all waiting tickets for a service in FIFO order.
 export async function getQueue(tag) {
   const db = await getDatabase()

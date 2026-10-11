@@ -166,6 +166,23 @@ describe('errors', () => {
 })
 
 describe('refresh and cleanup', () => {
+  it('ignores an older answer that arrives after a board-state event', async () => {
+    let finishOld
+    getBoard
+      .mockResolvedValueOnce(board) // first load
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+    render(<BoardPage />)
+    await screen.findByRole('heading', { name: 'Payments' })
+
+    act(() => stream.onEvent('ticket-issued', {})) // a request that stays pending (like the polling)
+    const newer = { ...board, B: { ...board.B, queueLength: 3 } }
+    act(() => stream.onEvent('board-state', newer))
+    expect(within(card('Banking')).getByText('3')).toBeInTheDocument()
+
+    await act(async () => finishOld(board)) // old answer: B = 2
+    expect(within(card('Banking')).getByText('3')).toBeInTheDocument()
+  })
+
   it('reloads the board every 5 seconds', async () => {
     vi.useFakeTimers()
     getBoard.mockResolvedValue(board)

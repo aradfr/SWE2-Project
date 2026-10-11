@@ -28,6 +28,7 @@ function BoardPage() {
 
     const unsubscribe = subscribeToBoardEvents((eventName, data) => {
       if (eventName === 'board-state') {
+        latestRequest += 1 // a newer board arrived: older pending requests are ignored
         setBoard(data)
         setError('')
       } else {

@@ -89,7 +89,7 @@ paths:
   /api/board:
     get:
       tags: [board]
-      summary: Get the latest called ticket per service and counter, and waiting counts
+      summary: Get board state grouped by service tag
       operationId: getBoardState
       responses:
         '200':
@@ -179,11 +179,8 @@ components:
           example: waiting
     LastCalledTicket:
       type: object
-      required: [name, code, counterId, calledAt]
+      required: [code, counterId, calledAt]
       properties:
-        name:
-          type: string
-          description: Display name of the service type
         code:
           type: string
           example: A001
@@ -194,19 +191,21 @@ components:
           description: Call time as stored by SQLite
     BoardState:
       type: object
-      required: [board, queueLengths]
-      properties:
-        board:
-          type: object
-          additionalProperties:
+      description: Board data indexed by the service tag
+      additionalProperties:
+        type: object
+        required: [name, queueLength, lastCalledTickets]
+        properties:
+          name:
+            type: string
+            description: Display name of the service type
+          queueLength:
+            type: integer
+            minimum: 0
+          lastCalledTickets:
             type: array
             items:
               $ref: '#/components/schemas/LastCalledTicket'
-        queueLengths:
-          type: object
-          additionalProperties:
-            type: integer
-            minimum: 0
     Error:
       type: object
       required: [error]

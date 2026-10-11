@@ -11,6 +11,7 @@ import {
   peek,
   getQueueLength,
   getQueueLengths,
+  getBoardData,
   getQueue,
   reset,
   close,
@@ -74,6 +75,28 @@ describe('store', () => {
     expect((await dequeue('A')).code).toBe('A001')
     expect((await getQueue('A'))[0].code).toBe('A002')
     expect(await getQueueLength('B')).toBe(1)
+  })
+
+  it('returns board state grouped by service tag', async () => {
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'A' })
+    await addTicket({ serviceType: 'B' })
+    await dequeue('A', 1)
+    await dequeue('A', 2)
+
+    expect(await getBoardData()).toEqual({
+      A: {
+        name: 'Payments',
+        queueLength: 1,
+        lastCalledTickets: [
+          { code: 'A001', counterId: 1, calledAt: expect.any(String) },
+          { code: 'A002', counterId: 2, calledAt: expect.any(String) },
+        ],
+      },
+      B: { name: 'Banking', queueLength: 1, lastCalledTickets: [] },
+      C: { name: 'Shipping', queueLength: 0, lastCalledTickets: [] },
+    })
   })
 
   it('returns copies and null for empty queues', async () => {

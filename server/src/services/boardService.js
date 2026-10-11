@@ -1,29 +1,30 @@
-import { getLastCalledTickets, getQueueLengths } from '../store.js'
+import { getBoardData } from '../store.js'
 
 /**
  * Last-called ticket details returned for one counter and service type.
  * @typedef {object} LastCalledTicket
  * @property {number} counterId - Counter that called the ticket.
- * @property {string} name - Display name of the service type.
  * @property {string} code - Code of the last called ticket.
  * @property {string} calledAt - Call time.
  */
 
 /**
- * Current state shown on the board.
- * @typedef {object} BoardState
- * @property {Record<string, LastCalledTicket[]>} board - Latest call per counter, grouped by service tag.
- * @property {Record<string, number>} queueLengths - Waiting ticket count by service tag.
+ * State for one service type on the board.
+ * @typedef {object} BoardServiceState
+ * @property {string} name - Display name of the service type.
+ * @property {number} queueLength - Number of waiting tickets.
+ * @property {LastCalledTicket[]} lastCalledTickets - Latest call at each counter.
  */
 
 /**
- * Load the latest calls and queue lengths for the board's initial state and updates.
+ * Current state shown on the board, keyed by service tag.
+ * @typedef {Record<string, BoardServiceState>} BoardState
+ */
+
+/**
+ * Load the board state grouped by service tag.
  * @returns {Promise<BoardState>}
  */
 export async function getBoardState() {
-  const [board, queueLengths] = await Promise.all([
-    getLastCalledTickets(),
-    getQueueLengths(),
-  ])
-  return { board, queueLengths }
+  return getBoardData()
 }

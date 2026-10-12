@@ -2,7 +2,7 @@
  * Team palette. Pages must not hard-code colours: use Bootstrap variants
  * (primary, warning, danger…).
  *
- *   #064789  header / navbar (and full-screen board)
+ *   #064789  header / navbar
  *   #427AA1  primary: buttons and selection
  *   #EBF2FA  page background
  *
@@ -64,10 +64,29 @@ body {
   background-color: #064789;
 }
 
-/* Full-screen display board (pages/board/BoardPage.jsx) */
-.board-screen {
-  background-color: #064789;
-  color: #fff;
+/* Display board (pages/board/BoardPage.jsx) */
+.board-service {
+  border-top: 5px solid #064789;
+}
+
+.board-call {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-call-code {
+  color: #064789;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.board-queue-length {
+  color: #17324d;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 /* Cards: light primary-coloured border */

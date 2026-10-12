@@ -48,6 +48,29 @@ export async function apiFetch(path, options = {}) {
   return response.json()
 }
 
+// Load the board state (name, queue length and latest called tickets for each queue).
+export async function getBoard() {
+  return apiFetch('/board')
+}
+
+export function subscribeToBoardEvents(onEvent, onError = () => {}) {
+  const eventSource = new EventSource('/api/board/events')
+  const eventNames = ['board-state', 'ticket-issued', 'ticket-called']
+  const handleEvent = (event) => {
+    try {
+      onEvent(event.type, JSON.parse(event.data))
+    } catch (error) {
+      onError(error)
+    }
+  }
+
+  for (const eventName of eventNames) {
+    eventSource.addEventListener(eventName, handleEvent)
+  }
+
+  return () => eventSource.close()
+}
+
 // True for bodies to send as JSON: plain objects ({ ... }) and arrays.
 // FormData, Blob, URLSearchParams and strings are passed to fetch unchanged.
 function isJsonBody(value) {

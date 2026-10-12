@@ -1,50 +1,71 @@
 # Office Queue Management System
 
-Software Engineering 2 team project (PoliTO, a.y. 2026/27).
-Manages queues for desk services open to the public (post office, medical office):
-customers take a ticket for a service type, officers call the next customer,
-a display board shows queue lengths, managers see statistics.
+## Sprint 1 stories
 
-## Repository layout
-
-```
-server/   Express REST API (ES modules)
-client/   React + Vite frontend
-docs/     openapi.yaml - the API contract
-```
-
-## Server structure
-
-```
-server/src/routes/        Express routes (HTTP only: validation, status codes)
-server/src/services/      business logic of each story (no HTTP)
-server/src/store.js       single in-memory data access point (queue.js, seed.js used only by the store)
-server/test/unit/         unit tests
-server/test/integration/  HTTP integration tests
-```
-
-Routes call services, services call the store; routes never use the store directly.
-Services and routes use `async`/`await`: the store is synchronous today, but it
-will become async when the database arrives, with the same function names.
-
-## Tech decisions (Sprint 1)
-
-- **Node 22 + Express** backend, **React + Vite** frontend, one language everywhere.
-- **In-memory storage**: the spec resets all queues every morning and has no
-  persistence requirement, so no DB in sprint 1. The storage layer is isolated
-  in `server/src/store.js` so a real DB can replace it without touching routes.
-- **API-first**: `docs/openapi.yaml` is the contract. Frontend and backend work
-  happen in parallel against it.
-- **Testing**: Vitest everywhere, Supertest for HTTP integration tests,
-  React Testing Library for the client, Playwright for E2E (not set up yet).
+| Story | What it does | UI page |
+| ----- | ------------ | ------- |
+| Get ticket | A customer chooses a service and gets a ticket code (e.g. `A001`) | `/customer` |
+| Next customer | An officer calls the next customer to their counter | `/officer`, `/officer/:counterId` |
+| Call customer | The display board shows the last call of each counter and the queue lengths, live | `/board` |
 
 ## Quick start
+
+Requirements: Node 22 or 24 (LTS), npm.
 
 ```bash
 npm install                 # installs server + client (npm workspaces)
 npm run dev:server          # API on http://localhost:3001
 npm run dev:client          # UI on http://localhost:5173 (proxies /api to 3001)
 ```
+
+Open http://localhost:5173 and choose a role. To see the whole flow, open
+`/customer`, `/officer` and `/board` in three windows.
+
+The database is created at `server/data/office_queue.db` on the first start
+(ignored by git).
+
+## Repository layout
+
+```
+server/   Express REST API (ES modules) + SQLite
+client/   React + Vite frontend
+e2e/      Playwright end-to-end tests
+docs/     openapi.yaml - the API contract
+```
+
+## Server structure
+
+```
+server/src/app.js          Express app: routes, JSON 404 for /api, error handler
+server/src/index.js        starts the server (PORT, default 3001)
+server/src/routes/         HTTP only: validation, status codes
+server/src/services/       business logic of each story (no HTTP)
+server/src/events.js       in-process events: routes publish, board streams listen
+server/src/store.js        data access facade used by the services
+server/src/dao/            SQLite: db.js (open, schema, migration), officeDao.js,
+                           ticketDao.js, transaction.js, schema.sql
+server/src/seed.js         services and counters loaded at startup
+server/src/middleware/     errorHandler.js, notFound.js
+server/test/unit/          unit tests
+server/test/integration/   HTTP integration tests (Supertest, temporary database)
+```
+
+Routes call services, services call the store, the store calls the DAOs;
+routes never use the store directly.
+
+### Office configuration (seed)
+
+| Service | Tag | Average service time |
+| ------- | --- | -------------------- |
+| Payments | `A` | 3 min |
+| Banking | `B` | 5 min |
+| Shipping | `C` | 10 min |
+
+| Counter | Serves |
+| ------- | ------ |
+| 1 | A |
+| 2 | A, B |
+| 3 | C |
 
 ## Client structure
 
@@ -53,51 +74,66 @@ client/src/
   main.jsx, App.jsx   entry point and routes (shared)
   theme.css           team palette (shared)
   components/         shared UI: AppNavbar, PageLayout
-  api/client.js       apiFetch: the only way to call the server
-  api/<role>.js       API functions of each role
+  api/client.js       apiFetch (the only way to call the server), board API and SSE
+  api/<role>.js       API functions of each role (customer.js, officer.js)
   pages/<role>/       pages of each role: customer/, officer/, board/
 ```
 
-Team rules:
-
-1. Work only in `pages/<role>/` and `api/<role>.js`.
-2. `App.jsx`, `main.jsx`, `theme.css` and `components/` are shared: do not edit them to work on a page.
-3. No hard-coded colours: use Bootstrap variants (`primary`, `warning`, `danger`...).
-   Page CSS is for layout only, in your own folder (`*.module.css`).
-4. New libraries only after telling the team, in a separate PR.
-5. Always call the server through `apiFetch`.
 
 ## Tests
 
 ```bash
-npm test                    # server + client unit/integration tests
+npm test                         # server + client unit and integration tests (Vitest)
+npm run coverage -w server       # server coverage report
+npm run lint -w server && npm run lint -w client
+npx playwright install chromium  # only the first time: downloads the browser for the E2E tests
+npm run test:e2e                 # Playwright E2E tests
 ```
 
-E2E tests (Playwright) are not set up yet: `npm run test:e2e` will fail until they are.
+- **Server**: Vitest, Supertest for HTTP integration tests. Integration tests
+  use a temporary SQLite file: the development database is never touched.
+- **Client**: Vitest + React Testing Library (jsdom). Client integration tests
+  start the real Express app on a free port.
+- **E2E**: Playwright (`e2e/`), one spec per story (`customer`, `officer`,
+  `board`). Playwright starts the server in test mode on a temporary database
+  and the client on `127.0.0.1:5173`. Tests run one at a time (`workers: 1`)
+  because they share one server and reset it before each test.
+  Stop any `dev:server` / `dev:client` already running first: Playwright would
+  reuse them, and the reset only works in test mode.
 
 ## API (Sprint 1)
 
-| Method | Path               | Success        | Errors                                       |
-| ------ | ------------------ | -------------- | -------------------------------------------- |
-| GET    | `/api/health`      | 200 `{status}` |                                              |
-| GET    | `/api/services`    | 200 `{services}` |                                            |
-| POST   | `/api/tickets`     | 201 ticket     | 400 invalid body, 404 unknown service type   |
-| POST   | `/api/test/reset`  | 204            | 403 unless `NODE_ENV=test`                   |
+| Method | Path | Success | Errors |
+| ------ | ---- | ------- | ------ |
+| GET | `/api/health` | 200 `{status}` | |
+| GET | `/api/services` | 200 `{services}` | |
+| POST | `/api/tickets` | 201 ticket | 400 invalid body, 404 unknown service type |
+| GET | `/api/counters` | 200 `{counters}` | |
+| POST | `/api/counters/:id/next` | 200 called ticket, 204 nobody waiting | 400 invalid id, 404 unknown counter |
+| GET | `/api/counters/:id/current` | 200 ticket being served, 204 none | 400 invalid id, 404 unknown counter |
+| GET | `/api/board` | 200 board state | |
+| GET | `/api/board/events` | 200 `text/event-stream` | |
+| POST | `/api/test/reset` | 204 | 403 unless `NODE_ENV=test` |
 
 All errors use the body `{ "error": "message" }`. Any other `/api` path or
 method returns 404 with the same body. Full contract: `docs/openapi.yaml`.
 
+## Tech decisions
+
+- **Node + Express** backend, **React + Vite** frontend, one language everywhere.
+- **SQLite** (`sqlite3`) for storage, behind `store.js` and the DAOs. Tickets
+  keep their history (status `waiting`, `called`, ...) for future statistics.
+- **API-first**: `docs/openapi.yaml` is the contract; frontend and backend work
+  in parallel against it.
+- **SSE** for the display board: one-way server → board updates, no extra library.
+- **Testing**: Vitest everywhere, Supertest for HTTP, React Testing Library for
+  the client, Playwright for E2E.
+
 ## Git workflow
 
 - `main`: reviewed, demo-ready code only. Default branch.
-- `dev`: integration branch for the sprint. Open PRs to `main`.
+- `dev`: integration branch for the sprint.
+- `story/<name>`: one branch per story, from `dev`; PR into `dev`.
+- `task/OQM-xx-<name>`: one branch per task, from the story; PR into the story.
+- Every PR is reviewed by another team member before the merge.
 - Definition of Done: unit tested, integration + E2E tested, code reviewed, pushed here.
-
-## Ticket codes
-
-Service tag + 3-digit number per service (`A001`, `A002`, ..., `B001`, ...).
-Numbers restart from `001` every morning, when the queues are reset.
-
-Assumption: after `999` a service's numbering restarts from `001`, so codes are
-unique within the day unless a service exceeds 999 tickets. The ticket `id` is
-always unique.

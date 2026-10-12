@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 
 async function resetServer() {
-  await fetch('http://127.0.0.1:3001/api/test/reset', { method: 'POST' })
+  const res = await fetch('http://127.0.0.1:3001/api/test/reset', { method: 'POST' })
+  expect(res.status).toBe(204)
 }
 
 test.beforeEach(async () => {
@@ -12,7 +13,6 @@ test.beforeEach(async () => {
 test('customer can open the kiosk and choose a service', async ({ page }) => {
   await page.goto('/customer')
 
-  await expect(page.getByRole('heading', { name: 'Customer' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Customer' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Payments/i })).toBeVisible()
 })

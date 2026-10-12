@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 
 async function resetServer() {
-  await fetch('http://127.0.0.1:3001/api/test/reset', { method: 'POST' })
+  const res = await fetch('http://127.0.0.1:3001/api/test/reset', { method: 'POST' })
+  expect(res.status).toBe(204)
 }
 
 test.beforeEach(async () => {
